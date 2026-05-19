@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"audio2note/internal/summarizer"
@@ -18,9 +19,18 @@ func (ClaudeCode) Name() string { return "claudecode" }
 
 func (ClaudeCode) Summarize(ctx context.Context, in summarizer.Input) error {
 	prompt := buildPrompt(in)
-	// --permission-mode acceptEdits so claude can write the notes file
-	// without prompting in this headless invocation.
-	cmd := exec.CommandContext(ctx, "claude", "-p", prompt, "--permission-mode", "acceptEdits")
+	// --permission-mode acceptEdits suppresses interactive prompts.
+	// --add-dir extends the sandbox's allowed write set; without it claude
+	// can't write to paths outside cwd (e.g. an Obsidian vault elsewhere on
+	// disk, or a transcript file the user pointed at).
+	args := []string{"-p", prompt, "--permission-mode", "acceptEdits"}
+	if dir := filepath.Dir(in.TranscriptFile); dir != "" {
+		args = append(args, "--add-dir", dir)
+	}
+	if in.ObsidianVault != "" {
+		args = append(args, "--add-dir", in.ObsidianVault)
+	}
+	cmd := exec.CommandContext(ctx, "claude", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
