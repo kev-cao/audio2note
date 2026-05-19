@@ -27,7 +27,8 @@ func (MacWhisper) Transcribe(ctx context.Context, audioFile, outputFile string) 
 	}
 	defer f.Close()
 
-	cmd := exec.CommandContext(ctx, "mw", "transcribe", audioFile)
+	// --persist also saves the transcription to MacWhisper's history.
+	cmd := exec.CommandContext(ctx, "mw", "transcribe", "--persist", audioFile)
 	cmd.Stdout = f
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
