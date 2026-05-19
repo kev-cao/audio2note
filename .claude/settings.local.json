@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./audio2note *)",
+      "Bash(OBSIDIAN_VAULT_PATH= ./audio2note --obsidian nope.mp3)",
+      "Bash(touch /tmp/dummy.mp3)",
+      "Bash(OBSIDIAN_VAULT_PATH= ./audio2note --obsidian /tmp/dummy.mp3)",
+      "Bash(mw --help)",
+      "Bash(mw transcribe *)"
+    ]
+  }
+}
