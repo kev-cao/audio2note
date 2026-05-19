@@ -43,6 +43,8 @@ That runs the defaults: `mw transcribe meeting.mp3` writes the transcript to `Tr
 | `--obsidian` | off | Tell the summarizer to write the notes into the Obsidian vault at `$OBSIDIAN_VAULT_PATH`. Errors if the env var is empty. |
 | `--obsidian-vault <path>` | unset | Explicit vault path. Overrides `$OBSIDIAN_VAULT_PATH` and implies `--obsidian`. |
 | `--output-file <name>` | `transcript-notes.md` | File name passed to the summarizer for the notes output. |
+| `--transcribe-only` | off | Run only the transcriber and exit. Mutually exclusive with `--summarize-only`. |
+| `--summarize-only` | off | Run only the summarizer against an existing transcript file (audio file becomes optional). Mutually exclusive with `--transcribe-only`. |
 
 ### Examples
 
@@ -61,6 +63,12 @@ audio2note \
   --transcript-file /tmp/meeting-transcript.txt \
   --output-file 2026-05-19-standup.md \
   meeting.mp3
+
+# Only transcribe (skip summarization)
+audio2note --transcribe-only meeting.mp3
+
+# Only summarize an existing transcript (no audio file needed)
+audio2note --summarize-only --transcript-file /tmp/meeting-transcript.txt
 ```
 
 ## Adding a new transcriber or summarizer

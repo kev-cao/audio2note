@@ -29,6 +29,8 @@ type flags struct {
 	obsidian       bool
 	obsidianVault  string
 	outputFile     string
+	transcribeOnly bool
+	summarizeOnly  bool
 }
 
 func newRootCmd() *cobra.Command {
@@ -36,11 +38,15 @@ func newRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "audio2note <audio-file>",
 		Short:         "Transcribe an audio file and summarize it into meeting notes.",
-		Args:          cobra.ExactArgs(1),
+		Args:          cobra.MaximumNArgs(1),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return run(cmd.Context(), args[0], f, cmd.Flags().Changed("obsidian-vault"))
+			audioArg := ""
+			if len(args) > 0 {
+				audioArg = args[0]
+			}
+			return run(cmd.Context(), audioArg, f, cmd.Flags().Changed("obsidian-vault"))
 		},
 	}
 
@@ -50,19 +56,15 @@ func newRootCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&f.obsidian, "obsidian", false, "Write notes to the Obsidian vault at $"+obsidianVaultEnv)
 	cmd.Flags().StringVar(&f.obsidianVault, "obsidian-vault", "", "Explicit Obsidian vault path (implies --obsidian)")
 	cmd.Flags().StringVar(&f.outputFile, "output-file", "transcript-notes.md", "File name for the summarizer's notes output")
+	cmd.Flags().BoolVar(&f.transcribeOnly, "transcribe-only", false, "Run only the transcriber (skip summarization)")
+	cmd.Flags().BoolVar(&f.summarizeOnly, "summarize-only", false, "Run only the summarizer on an existing transcript file (skip transcription)")
+
+	cmd.MarkFlagsMutuallyExclusive("transcribe-only", "summarize-only")
 
 	return cmd
 }
 
 func run(ctx context.Context, audioArg string, f flags, vaultFlagSet bool) error {
-	audioFile, err := filepath.Abs(audioArg)
-	if err != nil {
-		return fmt.Errorf("resolve audio file: %w", err)
-	}
-	if _, err := os.Stat(audioFile); err != nil {
-		return fmt.Errorf("audio file: %w", err)
-	}
-
 	tr, err := transcriber.Get(f.transcriber)
 	if err != nil {
 		return fmt.Errorf("transcriber: %w", err)
@@ -70,6 +72,21 @@ func run(ctx context.Context, audioArg string, f flags, vaultFlagSet bool) error
 	sum, err := summarizer.Get(f.summarizer)
 	if err != nil {
 		return fmt.Errorf("summarizer: %w", err)
+	}
+
+	// Audio file is only required when we're going to transcribe.
+	var audioFile string
+	if !f.summarizeOnly {
+		if audioArg == "" {
+			return fmt.Errorf("audio file is required (unless --summarize-only is set)")
+		}
+		audioFile, err = filepath.Abs(audioArg)
+		if err != nil {
+			return fmt.Errorf("resolve audio file: %w", err)
+		}
+		if _, err := os.Stat(audioFile); err != nil {
+			return fmt.Errorf("audio file: %w", err)
+		}
 	}
 
 	transcriptPath := f.transcriptFile
@@ -93,6 +110,8 @@ func run(ctx context.Context, audioArg string, f flags, vaultFlagSet bool) error
 		TranscriptFile: transcriptPath,
 		OutputFile:     f.outputFile,
 		ObsidianVault:  vault,
+		SkipTranscribe: f.summarizeOnly,
+		SkipSummarize:  f.transcribeOnly,
 	})
 }
 
