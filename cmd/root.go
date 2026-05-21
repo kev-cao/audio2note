@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/google/shlex"
 	"github.com/spf13/cobra"
 
 	"audio2note/internal/pipeline"
@@ -23,14 +24,18 @@ import (
 const obsidianVaultEnv = "OBSIDIAN_VAULT_PATH"
 
 type flags struct {
-	transcriber    string
-	summarizer     string
-	transcriptFile string
-	obsidian       bool
-	obsidianVault  string
-	outputFile     string
-	transcribeOnly bool
-	summarizeOnly  bool
+	transcriber           string
+	summarizer            string
+	transcriptFile        string
+	obsidian              bool
+	obsidianVault         string
+	outputFile            string
+	transcribeOnly        bool
+	summarizeOnly         bool
+	transcriberArgs       string
+	transcriberNoDefaults bool
+	summarizerArgs        string
+	summarizerNoDefaults  bool
 }
 
 func newRootCmd() *cobra.Command {
@@ -58,6 +63,10 @@ func newRootCmd() *cobra.Command {
 	cmd.Flags().StringVar(&f.outputFile, "output-file", "transcript-notes.md", "File name for the summarizer's notes output")
 	cmd.Flags().BoolVar(&f.transcribeOnly, "transcribe-only", false, "Run only the transcriber (skip summarization)")
 	cmd.Flags().BoolVar(&f.summarizeOnly, "summarize-only", false, "Run only the summarizer on an existing transcript file (skip transcription)")
+	cmd.Flags().StringVar(&f.transcriberArgs, "transcriber-args", "", "Extra args to forward to the transcriber CLI (shell-quoted, e.g. \"--model whisper-large --stream\")")
+	cmd.Flags().BoolVar(&f.transcriberNoDefaults, "transcriber-no-defaults", false, "Skip the transcriber adapter's hardcoded extra flags")
+	cmd.Flags().StringVar(&f.summarizerArgs, "summarizer-args", "", "Extra args to forward to the summarizer CLI (shell-quoted, e.g. \"--model claude-sonnet-4-6\")")
+	cmd.Flags().BoolVar(&f.summarizerNoDefaults, "summarizer-no-defaults", false, "Skip the summarizer adapter's hardcoded extra flags")
 
 	cmd.MarkFlagsMutuallyExclusive("transcribe-only", "summarize-only")
 
@@ -103,16 +112,37 @@ func run(ctx context.Context, audioArg string, f flags, vaultFlagSet bool) error
 		return err
 	}
 
+	transcriberArgs, err := splitArgs(f.transcriberArgs)
+	if err != nil {
+		return fmt.Errorf("--transcriber-args: %w", err)
+	}
+	summarizerArgs, err := splitArgs(f.summarizerArgs)
+	if err != nil {
+		return fmt.Errorf("--summarizer-args: %w", err)
+	}
+
 	return pipeline.Run(ctx, pipeline.Options{
-		AudioFile:      audioFile,
-		Transcriber:    tr,
-		Summarizer:     sum,
-		TranscriptFile: transcriptPath,
-		OutputFile:     f.outputFile,
-		ObsidianVault:  vault,
-		SkipTranscribe: f.summarizeOnly,
-		SkipSummarize:  f.transcribeOnly,
+		AudioFile:             audioFile,
+		Transcriber:           tr,
+		Summarizer:            sum,
+		TranscriptFile:        transcriptPath,
+		OutputFile:            f.outputFile,
+		ObsidianVault:         vault,
+		SkipTranscribe:        f.summarizeOnly,
+		SkipSummarize:         f.transcribeOnly,
+		TranscriberArgs:       transcriberArgs,
+		TranscriberNoDefaults: f.transcriberNoDefaults,
+		SummarizerArgs:        summarizerArgs,
+		SummarizerNoDefaults:  f.summarizerNoDefaults,
 	})
+}
+
+// splitArgs runs a shell-style split over s. Empty input returns nil.
+func splitArgs(s string) ([]string, error) {
+	if s == "" {
+		return nil, nil
+	}
+	return shlex.Split(s)
 }
 
 // resolveVault picks the Obsidian vault path according to the rules:

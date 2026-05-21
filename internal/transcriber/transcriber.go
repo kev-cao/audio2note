@@ -8,12 +8,24 @@ import (
 	"audio2note/internal/registry"
 )
 
+// Input is everything a transcriber needs to produce a transcript.
+type Input struct {
+	// AudioFile is the absolute path to the input audio.
+	AudioFile string
+	// OutputFile is the absolute path where the transcript should be written.
+	OutputFile string
+	// ExtraArgs are already-split tokens to append to the underlying tool's
+	// command line.
+	ExtraArgs []string
+	// NoDefaults tells the adapter to skip its hardcoded extra flags (the
+	// core args — audio file and output destination — are still passed).
+	NoDefaults bool
+}
+
 type Transcriber interface {
 	Name() string
 	DefaultTranscriptFile() string
-	// Transcribe reads audioFile and writes the transcript to outputFile
-	// (an absolute path chosen by the caller).
-	Transcribe(ctx context.Context, audioFile, outputFile string) error
+	Transcribe(ctx context.Context, in Input) error
 }
 
 var reg = registry.New[Transcriber]()

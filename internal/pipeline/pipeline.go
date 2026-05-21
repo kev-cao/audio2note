@@ -11,20 +11,30 @@ import (
 )
 
 type Options struct {
-	AudioFile      string
-	Transcriber    transcriber.Transcriber
-	Summarizer     summarizer.Summarizer
-	TranscriptFile string // absolute path
-	OutputFile     string
-	ObsidianVault  string // empty when no vault
-	SkipTranscribe bool
-	SkipSummarize  bool
+	AudioFile             string
+	Transcriber           transcriber.Transcriber
+	Summarizer            summarizer.Summarizer
+	TranscriptFile        string // absolute path
+	OutputFile            string
+	ObsidianVault         string // empty when no vault
+	SkipTranscribe        bool
+	SkipSummarize         bool
+	TranscriberArgs       []string
+	TranscriberNoDefaults bool
+	SummarizerArgs        []string
+	SummarizerNoDefaults  bool
 }
 
 func Run(ctx context.Context, opts Options) error {
 	if !opts.SkipTranscribe {
 		fmt.Printf("→ transcribing %s with %s → %s\n", opts.AudioFile, opts.Transcriber.Name(), opts.TranscriptFile)
-		if err := opts.Transcriber.Transcribe(ctx, opts.AudioFile, opts.TranscriptFile); err != nil {
+		in := transcriber.Input{
+			AudioFile:  opts.AudioFile,
+			OutputFile: opts.TranscriptFile,
+			ExtraArgs:  opts.TranscriberArgs,
+			NoDefaults: opts.TranscriberNoDefaults,
+		}
+		if err := opts.Transcriber.Transcribe(ctx, in); err != nil {
 			return fmt.Errorf("transcribe: %w", err)
 		}
 	}
@@ -38,6 +48,8 @@ func Run(ctx context.Context, opts Options) error {
 			TranscriptFile: opts.TranscriptFile,
 			OutputFile:     opts.OutputFile,
 			ObsidianVault:  opts.ObsidianVault,
+			ExtraArgs:      opts.SummarizerArgs,
+			NoDefaults:     opts.SummarizerNoDefaults,
 		}
 		if err := opts.Summarizer.Summarize(ctx, in); err != nil {
 			return fmt.Errorf("summarize: %w", err)

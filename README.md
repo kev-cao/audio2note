@@ -45,6 +45,12 @@ That runs the defaults: `mw transcribe meeting.mp3` writes the transcript to `Tr
 | `--output-file <name>` | `transcript-notes.md` | File name passed to the summarizer for the notes output. |
 | `--transcribe-only` | off | Run only the transcriber and exit. Mutually exclusive with `--summarize-only`. |
 | `--summarize-only` | off | Run only the summarizer against an existing transcript file (audio file becomes optional). Mutually exclusive with `--transcribe-only`. |
+| `--transcriber-args <string>` | `""` | Extra args to forward to the transcriber CLI. Shell-quoted; split with `shlex` and appended after the adapter's defaults. |
+| `--summarizer-args <string>` | `""` | Same, for the summarizer CLI. |
+| `--transcriber-no-defaults` | off | Skip the transcriber adapter's hardcoded extras (e.g. `--persist` for `macwhisper`). Core args (the audio file) are still passed. |
+| `--summarizer-no-defaults` | off | Skip the summarizer adapter's hardcoded extras (e.g. `--permission-mode acceptEdits` and `--add-dir <vault>` for `claudecode`). The prompt is still passed. |
+
+The hardcoded extras each adapter sets are listed in the adapter source — see `internal/adapters/macwhisper/macwhisper.go` and `internal/adapters/claudecode/claudecode.go`. Forwarding the same flag with a different value is the normal override path; both `mw` and `claude` honor last-wins for repeated flags.
 
 ### Examples
 
@@ -69,6 +75,18 @@ audio2note --transcribe-only meeting.mp3
 
 # Only summarize an existing transcript (no audio file needed)
 audio2note --summarize-only --transcript-file /tmp/meeting-transcript.txt
+
+# Forward flags to the underlying tools
+audio2note \
+  --transcriber-args "--model whisper-large" \
+  --summarizer-args "--model claude-sonnet-4-6" \
+  meeting.mp3
+
+# Drop the adapter's hardcoded extras and run claude with your own posture
+audio2note \
+  --summarizer-no-defaults \
+  --summarizer-args "--dangerously-skip-permissions" \
+  meeting.mp3
 ```
 
 ## Adding a new transcriber or summarizer
@@ -92,17 +110,26 @@ That's it — the new adapter is now selectable via `--transcriber <name>` or `-
 
 ```go
 // internal/transcriber/transcriber.go
+type Input struct {
+    AudioFile  string   // absolute path
+    OutputFile string   // absolute path
+    ExtraArgs  []string // already-split tokens to append to the tool's argv
+    NoDefaults bool     // skip the adapter's hardcoded extra flags
+}
+
 type Transcriber interface {
     Name() string
     DefaultTranscriptFile() string
-    Transcribe(ctx context.Context, audioFile, outputFile string) error
+    Transcribe(ctx context.Context, in Input) error
 }
 
 // internal/summarizer/summarizer.go
 type Input struct {
-    TranscriptFile string // absolute path
-    OutputFile     string // file name (not a path)
-    ObsidianVault  string // empty when not writing to a vault
+    TranscriptFile string   // absolute path
+    OutputFile     string   // file name (not a path)
+    ObsidianVault  string   // empty when not writing to a vault
+    ExtraArgs      []string // already-split tokens to append to the tool's argv
+    NoDefaults     bool     // skip the adapter's hardcoded extra flags
 }
 
 type Summarizer interface {
@@ -113,5 +140,6 @@ type Summarizer interface {
 
 Notes:
 
-- The transcriber is given an absolute `outputFile`; how it actually lands the transcript there (stdout redirect, a CLI `-o` flag, etc.) is the adapter's call. The `macwhisper` adapter redirects mw's stdout to the file because `mw transcribe` has no output flag.
-- The summarizer receives a struct so future fields (model selection, system prompt overrides, etc.) can be added without breaking adapters.
+- The transcriber is given an absolute `OutputFile`; how it actually lands the transcript there (stdout redirect, a CLI `-o` flag, etc.) is the adapter's call. The `macwhisper` adapter redirects mw's stdout to the file because `mw transcribe` has no output flag.
+- Adapters should honor `ExtraArgs` (append after the adapter's defaults) and `NoDefaults` (skip the hardcoded extras when set). This is what makes `--transcriber-args` / `--summarizer-args` and the matching `--*-no-defaults` toggles work uniformly across adapters.
+- Both Input structs leave room for future fields (model selection, system prompt overrides, etc.) to be added without breaking adapters.

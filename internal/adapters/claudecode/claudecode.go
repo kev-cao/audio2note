@@ -19,17 +19,21 @@ func (ClaudeCode) Name() string { return "claudecode" }
 
 func (ClaudeCode) Summarize(ctx context.Context, in summarizer.Input) error {
 	prompt := buildPrompt(in)
-	// --permission-mode acceptEdits suppresses interactive prompts.
-	// --add-dir extends the sandbox's allowed write set; without it claude
-	// can't write to paths outside cwd (e.g. an Obsidian vault elsewhere on
-	// disk, or a transcript file the user pointed at).
-	args := []string{"-p", prompt, "--permission-mode", "acceptEdits"}
-	if dir := filepath.Dir(in.TranscriptFile); dir != "" {
-		args = append(args, "--add-dir", dir)
+	args := []string{"-p", prompt}
+	if !in.NoDefaults {
+		// --permission-mode acceptEdits suppresses interactive prompts.
+		// --add-dir extends the sandbox's allowed write set; without it
+		// claude can't write to paths outside cwd (e.g. an Obsidian vault
+		// elsewhere on disk, or a transcript file the user pointed at).
+		args = append(args, "--permission-mode", "acceptEdits")
+		if dir := filepath.Dir(in.TranscriptFile); dir != "" {
+			args = append(args, "--add-dir", dir)
+		}
+		if in.ObsidianVault != "" {
+			args = append(args, "--add-dir", in.ObsidianVault)
+		}
 	}
-	if in.ObsidianVault != "" {
-		args = append(args, "--add-dir", in.ObsidianVault)
-	}
+	args = append(args, in.ExtraArgs...)
 	cmd := exec.CommandContext(ctx, "claude", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

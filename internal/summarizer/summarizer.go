@@ -18,6 +18,12 @@ type Input struct {
 	// ObsidianVault is the absolute path to an Obsidian vault to write the
 	// notes into. Empty when the caller does not want vault output.
 	ObsidianVault string
+	// ExtraArgs are already-split tokens to append to the underlying tool's
+	// command line.
+	ExtraArgs []string
+	// NoDefaults tells the adapter to skip its hardcoded extra flags (the
+	// core args — the prompt — are still passed).
+	NoDefaults bool
 }
 
 type Summarizer interface {

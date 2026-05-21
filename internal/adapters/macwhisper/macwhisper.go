@@ -20,15 +20,21 @@ type MacWhisper struct{}
 func (MacWhisper) Name() string                  { return "macwhisper" }
 func (MacWhisper) DefaultTranscriptFile() string { return "Transcript.txt" }
 
-func (MacWhisper) Transcribe(ctx context.Context, audioFile, outputFile string) error {
-	f, err := os.Create(outputFile)
+func (MacWhisper) Transcribe(ctx context.Context, in transcriber.Input) error {
+	f, err := os.Create(in.OutputFile)
 	if err != nil {
 		return fmt.Errorf("create transcript file: %w", err)
 	}
 	defer f.Close()
 
-	// --persist also saves the transcription to MacWhisper's history.
-	cmd := exec.CommandContext(ctx, "mw", "transcribe", "--persist", audioFile)
+	args := []string{"transcribe", in.AudioFile}
+	if !in.NoDefaults {
+		// --persist saves the transcription to MacWhisper's history.
+		args = append(args, "--persist")
+	}
+	args = append(args, in.ExtraArgs...)
+
+	cmd := exec.CommandContext(ctx, "mw", args...)
 	cmd.Stdout = f
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
