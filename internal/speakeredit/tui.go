@@ -6,29 +6,72 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"audio2note/internal/transcriber"
 )
 
-const quoteTruncate = 150
+// quoteTruncate caps absurdly long quotes after wrapping kicks in; an
+// individual quote rendered in the TUI shouldn't dominate the whole screen.
+const quoteTruncate = 600
+
+// defaultWidth is used before bubbletea sends the first WindowSizeMsg.
+const defaultWidth = 80
+
+var (
+	labelStyle = lipgloss.NewStyle().
+			Faint(true).
+			Italic(true)
+
+	speakerNameStyle = lipgloss.NewStyle().
+				Bold(true)
+
+	renameArrowStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("10")) // bright green
+
+	renameNameStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("10")).
+			Bold(true)
+
+	quoteStyle = lipgloss.NewStyle().
+			Border(lipgloss.NormalBorder(), false, false, false, true).
+			BorderForeground(lipgloss.Color("8")). // gray
+			PaddingLeft(2).
+			Italic(true)
+
+	helpStyle = lipgloss.NewStyle().
+			Faint(true)
+
+	promptStyle = lipgloss.NewStyle().
+			Bold(true)
+
+	confirmStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("11")). // bright yellow
+			Bold(true)
+)
 
 // tui is the bubbletea adapter. It implements tea.Model and translates input
 // events to Model method calls. The Model itself stays bubbletea-free.
 type tui struct {
 	m     *Model
 	input textinput.Model
+	width int
 }
 
 func newTUI(m *Model) tui {
 	ti := textinput.New()
 	ti.CharLimit = 128
 	ti.Width = 40
-	return tui{m: m, input: ti}
+	return tui{m: m, input: ti, width: defaultWidth}
 }
 
 func (t tui) Init() tea.Cmd { return textinput.Blink }
 
 func (t tui) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if ws, ok := msg.(tea.WindowSizeMsg); ok {
+		t.width = ws.Width
+		return t, nil
+	}
 	switch t.m.Mode() {
 	case BrowseMode:
 		key, ok := msg.(tea.KeyMsg)
@@ -68,7 +111,7 @@ func (t tui) updateBrowse(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		t.input.CursorEnd()
 		t.m.BeginEdit()
 		return t, t.input.Focus()
-	case "ctrl+s":
+	case "s":
 		t.m.Save()
 		return t, tea.Quit
 	case "q", "ctrl+c":
@@ -111,31 +154,54 @@ func (t tui) updateConfirm(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (t tui) View() string {
 	speakers := t.m.Speakers()
 	if len(speakers) == 0 {
-		return "(no speakers)\n"
+		return labelStyle.Render("(no speakers)") + "\n"
 	}
 	sp := t.m.CurrentSpeaker()
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "Speaker %d of %d: %s", t.m.SpeakerIndex()+1, len(speakers), sp.Name)
+
+	// Header: "Speaker X of Y" (faint) + bolded name + optional "→ NewName"
+	fmt.Fprintf(&b, "%s  %s",
+		labelStyle.Render(fmt.Sprintf("Speaker %d of %d", t.m.SpeakerIndex()+1, len(speakers))),
+		speakerNameStyle.Render(sp.Name),
+	)
 	if newName, ok := t.m.PendingRename(sp.Name); ok {
-		fmt.Fprintf(&b, "  →  %s", newName)
+		fmt.Fprintf(&b, "  %s  %s",
+			renameArrowStyle.Render("→"),
+			renameNameStyle.Render(newName),
+		)
 	}
-	b.WriteString("\n")
+	b.WriteString("\n\n")
 
+	// Quote block — width-aware so long quotes wrap instead of overflowing.
 	if quote, ok := t.m.CurrentQuote(); ok {
-		fmt.Fprintf(&b, "Quote %d of %d:\n  %q\n", t.m.QuoteIndex()+1, len(sp.Quotes), truncate(quote.Text, quoteTruncate))
+		quoteWidth := max(t.width-4, 20) // leave room for border + padding
+		b.WriteString(quoteStyle.Width(quoteWidth).Render(truncate(quote.Text, quoteTruncate)))
+		b.WriteString("\n")
+		b.WriteString(labelStyle.Render(fmt.Sprintf("quote %d of %d", t.m.QuoteIndex()+1, len(sp.Quotes))))
+		b.WriteString("\n")
 	} else {
-		b.WriteString("(no quotes)\n")
+		b.WriteString(labelStyle.Render("(no quotes)"))
+		b.WriteString("\n")
 	}
 	b.WriteString("\n")
 
+	// Mode-specific bottom section
 	switch t.m.Mode() {
 	case BrowseMode:
-		b.WriteString("↑/↓ speaker • ←/→ quote • enter rename • ctrl+s save • q quit\n")
+		b.WriteString(helpStyle.Render("↑/↓ speaker  •  ←/→ quote  •  enter rename  •  s save  •  q quit"))
+		b.WriteString("\n")
 	case EditMode:
-		fmt.Fprintf(&b, "Rename to: %s\n\nenter confirm • esc cancel\n", t.input.View())
+		fmt.Fprintf(&b, "%s %s\n\n%s\n",
+			promptStyle.Render("Rename to:"),
+			t.input.View(),
+			helpStyle.Render("enter confirm  •  esc cancel"),
+		)
 	case ConfirmQuitMode:
-		fmt.Fprintf(&b, "You have %d unsaved rename(s). Quit anyway? (y/N)\n", t.m.PendingRenameCount())
+		fmt.Fprintf(&b, "%s\n\n%s\n",
+			confirmStyle.Render(fmt.Sprintf("You have %d unsaved rename(s). Quit anyway?", t.m.PendingRenameCount())),
+			helpStyle.Render("y  discard and quit  •  n / esc  keep editing"),
+		)
 	}
 	return b.String()
 }

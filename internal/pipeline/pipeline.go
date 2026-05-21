@@ -97,8 +97,7 @@ func runSpeakerEdit(opts Options) error {
 		return fmt.Errorf("speaker edit: %w", err)
 	}
 	if !saved {
-		fmt.Println("→ speaker edits discarded")
-		return nil
+		return fmt.Errorf("speaker editing cancelled")
 	}
 	if len(renames) == 0 {
 		return nil

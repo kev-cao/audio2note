@@ -111,8 +111,8 @@ When `--edit-speaker-labels` is set, the pipeline opens an interactive prompt fo
 - `←` / `→` (or `h` / `l`) — previous / next quote within the current speaker
 - `Enter` — start editing the current speaker's name
   - In edit mode: `Enter` confirms, `Esc` cancels
-- `Ctrl+S` — save renames and continue the pipeline
-- `q` (or `Ctrl+C`) — quit; prompts for confirmation if you have unsaved renames
+- `s` — save renames and continue the pipeline
+- `q` (or `Ctrl+C`) — abort the pipeline (no summarization runs). Prompts for confirmation if you have unsaved renames.
 
 ## Adding a new transcriber or summarizer
 
