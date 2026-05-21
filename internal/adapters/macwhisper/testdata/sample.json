@@ -1,0 +1,17 @@
+[
+  {"speaker": "Speaker 1", "text": "Good morning everyone, thanks for joining the planning meeting.", "start": 0.00, "end": 3.21, "confidence": 0.96},
+  {"speaker": "Speaker 2", "text": "Glad to be here. I had a chance to review the agenda last night.", "start": 3.21, "end": 7.10, "confidence": 0.93},
+  {"speaker": "Speaker 1", "text": "Great. Let's start with the Q3 roadmap update.", "start": 7.10, "end": 9.85, "confidence": 0.97},
+  {"speaker": "Speaker 3", "text": "Before we dive in, do we have the latest revenue numbers?", "start": 9.85, "end": 12.40, "confidence": 0.91, "language": "en"},
+  {"speaker": "Speaker 2", "text": "I pulled them yesterday. We're up about 12 percent quarter over quarter.", "start": 12.40, "end": 17.05, "confidence": 0.94},
+  {"speaker": "Speaker 1", "text": "Solid. That tracks with what the leadership team forecasted last week.", "start": 17.05, "end": 21.30, "confidence": 0.95},
+  {"speaker": "Speaker 4", "text": "Sorry I'm late.", "start": 21.30, "end": 22.10, "confidence": 0.89},
+  {"speaker": "Speaker 1", "text": "No problem. We're just getting into Q3 planning.", "start": 22.10, "end": 25.00, "confidence": 0.96},
+  {"speaker": "Speaker 3", "text": "I think the biggest open question is whether we ship the new dashboard in July or August.", "start": 25.00, "end": 31.20, "confidence": 0.92},
+  {"speaker": "Speaker 4", "text": "Engineering capacity is the gating factor. We lost two reviewers to other teams.", "start": 31.20, "end": 36.55, "confidence": 0.90},
+  {"speaker": "Speaker 2", "text": "Can we get backfill approvals expedited?", "start": 36.55, "end": 39.00, "confidence": 0.93},
+  {"speaker": "Speaker 1", "text": "I'll take that as an action item and sync with HR this afternoon.", "start": 39.00, "end": 43.40, "confidence": 0.97},
+  {"speaker": "Speaker 5", "text": "Quick note from the design side: the new component library is ready for integration.", "start": 43.40, "end": 49.10, "confidence": 0.92},
+  {"speaker": "Speaker 3", "text": "Excellent timing. That unblocks the dashboard rewrite.", "start": 49.10, "end": 52.85, "confidence": 0.94},
+  {"speaker": "Speaker 1", "text": "Let's circle back next week with a firmer commitment on the ship date.", "start": 52.85, "end": 57.20, "confidence": 0.96}
+]
