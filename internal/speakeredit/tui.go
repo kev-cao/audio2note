@@ -13,7 +13,7 @@ import (
 
 // quoteTruncate caps absurdly long quotes after wrapping kicks in; an
 // individual quote rendered in the TUI shouldn't dominate the whole screen.
-const quoteTruncate = 600
+const quoteTruncate = 512
 
 // defaultWidth is used before bubbletea sends the first WindowSizeMsg.
 const defaultWidth = 80
