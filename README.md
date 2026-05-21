@@ -50,6 +50,7 @@ That runs the defaults: `mw transcribe meeting.mp3` writes the transcript to `Tr
 | `--transcriber-no-defaults` | off | Skip the transcriber adapter's hardcoded extras (e.g. `--persist` for `macwhisper`). Core args (the audio file) are still passed. |
 | `--summarizer-no-defaults` | off | Skip the summarizer adapter's hardcoded extras (e.g. `--permission-mode acceptEdits` and `--add-dir <vault>` for `claudecode`). The prompt is still passed. |
 | `--prompt <string>` | `""` | Extra text appended to the summarizer's prompt template. Lets you shape the output style without editing adapter source. |
+| `--edit-speaker-labels` | off | Between transcribe and summarize, open an interactive TUI to rename speaker labels in the transcript. Requires a transcriber that supports speaker labels (currently `macwhisper` with a `.json` transcript). |
 
 The hardcoded extras each adapter sets are listed in the adapter source — see `internal/adapters/macwhisper/macwhisper.go` and `internal/adapters/claudecode/claudecode.go`. Forwarding the same flag with a different value is the normal override path; both `mw` and `claude` honor last-wins for repeated flags.
 
@@ -93,7 +94,25 @@ audio2note \
 audio2note \
   --prompt "Use bullet points grouped by speaker. Keep the whole summary under 200 words." \
   meeting.mp3
+
+# Rename "Speaker 1"/"Speaker 2"/etc. before summarization (TUI)
+audio2note \
+  --summarize-only \
+  --transcript-file meeting.json \
+  --edit-speaker-labels \
+  --obsidian
 ```
+
+### Speaker-label editing TUI
+
+When `--edit-speaker-labels` is set, the pipeline opens an interactive prompt for each speaker in the transcript. You can page through quotes from that speaker to figure out who they are, rename them, and save. Keys:
+
+- `↑` / `↓` (or `k` / `j`) — previous / next speaker
+- `←` / `→` (or `h` / `l`) — previous / next quote within the current speaker
+- `Enter` — start editing the current speaker's name
+  - In edit mode: `Enter` confirms, `Esc` cancels
+- `Ctrl+S` — save renames and continue the pipeline
+- `q` (or `Ctrl+C`) — quit; prompts for confirmation if you have unsaved renames
 
 ## Adding a new transcriber or summarizer
 
@@ -150,3 +169,17 @@ Notes:
 - The transcriber is given an absolute `OutputFile`; how it actually lands the transcript there (stdout redirect, a CLI `-o` flag, etc.) is the adapter's call. The `macwhisper` adapter redirects mw's stdout to the file because `mw transcribe` has no output flag.
 - Adapters should honor `ExtraArgs` (append after the adapter's defaults) and `NoDefaults` (skip the hardcoded extras when set). This is what makes `--transcriber-args` / `--summarizer-args` and the matching `--*-no-defaults` toggles work uniformly across adapters.
 - Both Input structs leave room for future fields (model selection, system prompt overrides, etc.) to be added without breaking adapters.
+
+### Optional capability: speaker-label editing
+
+Transcribers that can parse and rewrite their output for speaker editing implement `transcriber.SpeakerLabelEditor`:
+
+```go
+type SpeakerLabelEditor interface {
+    HasSpeakerLabels(path string) (bool, error)
+    LoadSpeakers(path string) ([]Speaker, error)
+    ApplyRenames(path string, renames map[string]string) error
+}
+```
+
+`--edit-speaker-labels` type-asserts the active transcriber into this interface; transcribers that don't implement it get a clear error. The `macwhisper` adapter implements it for JSON transcripts; rewrites preserve all per-segment fields verbatim by round-tripping through `json.RawMessage`.

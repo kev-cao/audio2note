@@ -28,6 +28,35 @@ type Transcriber interface {
 	Transcribe(ctx context.Context, in Input) error
 }
 
+// Quote is a single utterance attributed to a speaker.
+type Quote struct {
+	Text string
+}
+
+// Speaker is a labeled speaker plus everything they said, in transcript order.
+type Speaker struct {
+	Name   string
+	Quotes []Quote
+}
+
+// SpeakerLabelEditor is an optional capability implemented by transcribers
+// whose output file can be parsed for editable speaker labels and rewritten
+// in place. The pipeline type-asserts the active transcriber into this
+// interface only when --edit-speaker-labels is set.
+type SpeakerLabelEditor interface {
+	// HasSpeakerLabels validates that path is in a format this adapter
+	// recognizes as containing speaker labels. Returns false (not an error)
+	// when the format is valid for the transcriber but lacks labels.
+	HasSpeakerLabels(path string) (bool, error)
+	// LoadSpeakers parses the file and returns speakers in order of first
+	// appearance; each speaker's Quotes are in transcript order.
+	LoadSpeakers(path string) ([]Speaker, error)
+	// ApplyRenames rewrites the file atomically with the given map
+	// (old → new). Unmentioned speakers are left untouched. Empty map is a
+	// no-op.
+	ApplyRenames(path string, renames map[string]string) error
+}
+
 var reg = registry.New[Transcriber]()
 
 func Register(t Transcriber)              { reg.Register(t) }

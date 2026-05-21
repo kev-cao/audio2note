@@ -37,6 +37,7 @@ type flags struct {
 	summarizerArgs        string
 	summarizerNoDefaults  bool
 	prompt                string
+	editSpeakerLabels     bool
 }
 
 func newRootCmd() *cobra.Command {
@@ -69,6 +70,7 @@ func newRootCmd() *cobra.Command {
 	cmd.Flags().StringVar(&f.summarizerArgs, "summarizer-args", "", "Extra args to forward to the summarizer CLI (shell-quoted, e.g. \"--model claude-sonnet-4-6\")")
 	cmd.Flags().BoolVar(&f.summarizerNoDefaults, "summarizer-no-defaults", false, "Skip the summarizer adapter's hardcoded extra flags")
 	cmd.Flags().StringVar(&f.prompt, "prompt", "", "Extra text appended to the summarizer's prompt (e.g. \"Use bullet points and keep it under 200 words.\")")
+	cmd.Flags().BoolVar(&f.editSpeakerLabels, "edit-speaker-labels", false, "Open an interactive TUI between transcribe and summarize to rename speaker labels in the transcript")
 
 	cmd.MarkFlagsMutuallyExclusive("transcribe-only", "summarize-only")
 
@@ -137,6 +139,7 @@ func run(ctx context.Context, audioArg string, f flags, vaultFlagSet bool) error
 		SummarizerArgs:        summarizerArgs,
 		SummarizerNoDefaults:  f.summarizerNoDefaults,
 		ExtraPrompt:           f.prompt,
+		EditSpeakerLabels:     f.editSpeakerLabels,
 	})
 }
 
