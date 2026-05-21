@@ -24,6 +24,9 @@ type Input struct {
 	// NoDefaults tells the adapter to skip its hardcoded extra flags (the
 	// core args — the prompt — are still passed).
 	NoDefaults bool
+	// ExtraPrompt is user-supplied text appended to the summarizer's prompt
+	// template. Empty string means no addition.
+	ExtraPrompt string
 }
 
 type Summarizer interface {

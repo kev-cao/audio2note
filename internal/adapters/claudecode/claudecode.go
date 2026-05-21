@@ -50,6 +50,9 @@ func buildPrompt(in summarizer.Input) string {
 	if in.ObsidianVault != "" {
 		fmt.Fprintf(&b, "\n\nWrite the meeting summary to my Obsidian vault located at %s.", in.ObsidianVault)
 	}
+	if in.ExtraPrompt != "" {
+		fmt.Fprintf(&b, "\n\n%s", in.ExtraPrompt)
+	}
 	return b.String()
 }
 

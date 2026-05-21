@@ -23,6 +23,7 @@ type Options struct {
 	TranscriberNoDefaults bool
 	SummarizerArgs        []string
 	SummarizerNoDefaults  bool
+	ExtraPrompt           string
 }
 
 func Run(ctx context.Context, opts Options) error {
@@ -50,6 +51,7 @@ func Run(ctx context.Context, opts Options) error {
 			ObsidianVault:  opts.ObsidianVault,
 			ExtraArgs:      opts.SummarizerArgs,
 			NoDefaults:     opts.SummarizerNoDefaults,
+			ExtraPrompt:    opts.ExtraPrompt,
 		}
 		if err := opts.Summarizer.Summarize(ctx, in); err != nil {
 			return fmt.Errorf("summarize: %w", err)

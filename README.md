@@ -49,6 +49,7 @@ That runs the defaults: `mw transcribe meeting.mp3` writes the transcript to `Tr
 | `--summarizer-args <string>` | `""` | Same, for the summarizer CLI. |
 | `--transcriber-no-defaults` | off | Skip the transcriber adapter's hardcoded extras (e.g. `--persist` for `macwhisper`). Core args (the audio file) are still passed. |
 | `--summarizer-no-defaults` | off | Skip the summarizer adapter's hardcoded extras (e.g. `--permission-mode acceptEdits` and `--add-dir <vault>` for `claudecode`). The prompt is still passed. |
+| `--prompt <string>` | `""` | Extra text appended to the summarizer's prompt template. Lets you shape the output style without editing adapter source. |
 
 The hardcoded extras each adapter sets are listed in the adapter source — see `internal/adapters/macwhisper/macwhisper.go` and `internal/adapters/claudecode/claudecode.go`. Forwarding the same flag with a different value is the normal override path; both `mw` and `claude` honor last-wins for repeated flags.
 
@@ -86,6 +87,11 @@ audio2note \
 audio2note \
   --summarizer-no-defaults \
   --summarizer-args "--dangerously-skip-permissions" \
+  meeting.mp3
+
+# Steer the summary style with extra prompt text
+audio2note \
+  --prompt "Use bullet points grouped by speaker. Keep the whole summary under 200 words." \
   meeting.mp3
 ```
 
@@ -130,6 +136,7 @@ type Input struct {
     ObsidianVault  string   // empty when not writing to a vault
     ExtraArgs      []string // already-split tokens to append to the tool's argv
     NoDefaults     bool     // skip the adapter's hardcoded extra flags
+    ExtraPrompt    string   // user-supplied text to append to the prompt
 }
 
 type Summarizer interface {
