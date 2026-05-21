@@ -102,8 +102,14 @@ func (t tui) updateBrowse(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "left", "h":
 		t.m.PrevQuote()
 	case "enter":
-		t.input.SetValue("")
-		t.input.Placeholder = t.m.CurrentSpeaker().Name
+		orig := t.m.CurrentSpeaker().Name
+		if pending, ok := t.m.PendingRename(orig); ok {
+			t.input.SetValue(pending)
+			t.input.CursorEnd()
+		} else {
+			t.input.SetValue("")
+		}
+		t.input.Placeholder = orig
 		t.m.BeginEdit()
 		return t, t.input.Focus()
 	case "s":
