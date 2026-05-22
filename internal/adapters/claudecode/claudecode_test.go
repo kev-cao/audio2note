@@ -73,3 +73,29 @@ func TestBuildPrompt_OmitsEmptyOptionals(t *testing.T) {
 		t.Errorf("unexpected double newline in minimal prompt: %q", got)
 	}
 }
+
+func TestBuildPrompt_OmitsOutputFileWhenEmpty(t *testing.T) {
+	got := buildPrompt(summarizer.Input{
+		TranscriptFile: "/abs/transcript.txt",
+	})
+	if strings.Contains(got, "output file") {
+		t.Errorf("output-file sentence should be omitted when OutputFile is empty\nprompt: %q", got)
+	}
+	want := "Read through the meeting transcript written at /abs/transcript.txt and make notes from this transcript."
+	if got != want {
+		t.Errorf("unexpected prompt\n got: %q\nwant: %q", got, want)
+	}
+}
+
+func TestBuildPrompt_OmitsOutputFileButKeepsVault(t *testing.T) {
+	got := buildPrompt(summarizer.Input{
+		TranscriptFile: "/abs/transcript.txt",
+		ObsidianVault:  "/path/to/vault",
+	})
+	if strings.Contains(got, "output file") {
+		t.Errorf("output-file sentence should be omitted; prompt: %q", got)
+	}
+	if !strings.Contains(got, "Obsidian vault located at /path/to/vault") {
+		t.Errorf("vault sentence missing; prompt: %q", got)
+	}
+}

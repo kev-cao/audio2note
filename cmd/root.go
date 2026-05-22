@@ -62,7 +62,7 @@ func newRootCmd() *cobra.Command {
 	cmd.Flags().StringVar(&f.transcriptFile, "transcript-file", "", "Path to the transcript file (defaults to the transcriber's default filename in cwd)")
 	cmd.Flags().BoolVar(&f.obsidian, "obsidian", false, "Write notes to the Obsidian vault at $"+obsidianVaultEnv)
 	cmd.Flags().StringVar(&f.obsidianVault, "obsidian-vault", "", "Explicit Obsidian vault path (implies --obsidian)")
-	cmd.Flags().StringVar(&f.outputFile, "output-file", "transcript-notes.md", "File name for the summarizer's notes output")
+	cmd.Flags().StringVar(&f.outputFile, "output-file", "", "If set, instructs the summarizer to use this exact file name; otherwise the summarizer chooses")
 	cmd.Flags().BoolVar(&f.transcribeOnly, "transcribe-only", false, "Run only the transcriber (skip summarization)")
 	cmd.Flags().BoolVar(&f.summarizeOnly, "summarize-only", false, "Run only the summarizer on an existing transcript file (skip transcription)")
 	cmd.Flags().StringVar(&f.transcriberArgs, "transcriber-args", "", "Extra args to forward to the transcriber CLI (shell-quoted, e.g. \"--model whisper-large --stream\")")

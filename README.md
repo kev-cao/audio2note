@@ -31,7 +31,7 @@ go build -o audio2note .
 audio2note meeting.mp3
 ```
 
-That runs the defaults: `mw transcribe meeting.mp3` writes the transcript to `Transcript.txt` in the current directory, then `claude` reads it and writes `transcript-notes.md`.
+That runs the defaults: `mw transcribe meeting.mp3` writes the transcript to `Transcript.txt` in the current directory, then `claude` reads it and writes the meeting notes (claude picks the filename unless you pass `--output-file`).
 
 ### Flags
 
@@ -42,7 +42,7 @@ That runs the defaults: `mw transcribe meeting.mp3` writes the transcript to `Tr
 | `--transcript-file <path>` | transcriber's default (`Transcript.txt` for `macwhisper`) | Where the transcript is written and where the summarizer reads from. |
 | `--obsidian` | off | Tell the summarizer to write the notes into the Obsidian vault at `$OBSIDIAN_VAULT_PATH`. Errors if the env var is empty. |
 | `--obsidian-vault <path>` | unset | Explicit vault path. Overrides `$OBSIDIAN_VAULT_PATH` and implies `--obsidian`. |
-| `--output-file <name>` | `transcript-notes.md` | File name passed to the summarizer for the notes output. |
+| `--output-file <name>` | _(summarizer chooses)_ | If set, the summarizer is told to write the notes to this exact file name. Otherwise the summarizer picks one itself. |
 | `--transcribe-only` | off | Run only the transcriber and exit. Mutually exclusive with `--summarize-only`. |
 | `--summarize-only` | off | Run only the summarizer against an existing transcript file (audio file becomes optional). Mutually exclusive with `--transcribe-only`. |
 | `--transcriber-args <string>` | `""` | Extra args to forward to the transcriber CLI. Shell-quoted; split with `shlex` and appended after the adapter's defaults. |
