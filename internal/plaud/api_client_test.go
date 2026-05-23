@@ -282,7 +282,7 @@ func TestGetHighlights_MissingURLReturnsEmpty(t *testing.T) {
 func TestValidate_OK(t *testing.T) {
 	var gotAuth string
 	h := http.NewServeMux()
-	h.HandleFunc("/user-app/profile/workspace/me", func(w http.ResponseWriter, r *http.Request) {
+	h.HandleFunc("/user/me", func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
 		_, _ = w.Write([]byte(`{"status":0,"msg":"success","data":{}}`))
 	})
@@ -300,7 +300,7 @@ func TestValidate_OK(t *testing.T) {
 
 func TestValidate_Unauthorized(t *testing.T) {
 	h := http.NewServeMux()
-	h.HandleFunc("/user-app/profile/workspace/me", func(w http.ResponseWriter, r *http.Request) {
+	h.HandleFunc("/user/me", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte(`{"status":401,"msg":"unauthorized"}`))
 	})
@@ -316,7 +316,7 @@ func TestValidate_Unauthorized(t *testing.T) {
 
 func TestValidate_NonZeroStatus(t *testing.T) {
 	h := http.NewServeMux()
-	h.HandleFunc("/user-app/profile/workspace/me", func(w http.ResponseWriter, r *http.Request) {
+	h.HandleFunc("/user/me", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"status":1,"msg":"token expired"}`))
 	})
 	ts := httptest.NewServer(h)

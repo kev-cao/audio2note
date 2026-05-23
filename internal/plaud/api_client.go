@@ -55,7 +55,7 @@ func newAPIClient(token, host string) *apiClient {
 
 func (c *apiClient) Validate(ctx context.Context) error {
 	var ignore struct{}
-	return c.doAPI(ctx, "GET", "/user-app/profile/workspace/me", &ignore)
+	return c.doAPI(ctx, "GET", "/user/me", &ignore)
 }
 
 func (c *apiClient) ListFiles(ctx context.Context) ([]File, error) {
