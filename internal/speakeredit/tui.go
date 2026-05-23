@@ -101,7 +101,7 @@ func (t tui) updateBrowse(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		t.m.NextQuote()
 	case "left", "h":
 		t.m.PrevQuote()
-	case "enter":
+	case "enter", "r":
 		orig := t.m.CurrentSpeaker().Name
 		if pending, ok := t.m.PendingRename(orig); ok {
 			t.input.SetValue(pending)
@@ -190,7 +190,7 @@ func (t tui) View() string {
 	// Mode-specific bottom section
 	switch t.m.Mode() {
 	case BrowseMode:
-		b.WriteString(helpStyle.Render("↑/↓ speaker  •  ←/→ quote  •  enter rename  •  s save  •  q quit"))
+		b.WriteString(helpStyle.Render("↑/↓ j/k speaker  •  ←/→ h/l quote  •  enter/r rename  •  s save  •  q quit"))
 		b.WriteString("\n")
 	case EditMode:
 		fmt.Fprintf(&b, "%s %s\n\n%s\n",
