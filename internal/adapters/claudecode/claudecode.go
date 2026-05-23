@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"audio2note/internal/summarizer"
 )
@@ -53,10 +54,26 @@ func buildPrompt(in summarizer.Input) string {
 	if in.ObsidianVault != "" {
 		fmt.Fprintf(&b, "\n\nWrite the meeting summary to my Obsidian vault located at %s.", in.ObsidianVault)
 	}
+	if len(in.Highlights) > 0 {
+		b.WriteString("\n\nThe user marked the following moments in this recording as highlights:")
+		for _, h := range in.Highlights {
+			fmt.Fprintf(&b, "\n  - %s", formatHighlight(h))
+		}
+		b.WriteString("\n\nPay special attention to the transcript content around these timestamps; treat them as the most important moments in the discussion.")
+	}
 	if in.ExtraPrompt != "" {
 		fmt.Fprintf(&b, "\n\n%s", in.ExtraPrompt)
 	}
 	return b.String()
+}
+
+// formatHighlight renders a duration as HH:MM:SS (zero-padded).
+func formatHighlight(d time.Duration) string {
+	total := int(d.Round(time.Second).Seconds())
+	h := total / 3600
+	m := (total % 3600) / 60
+	s := total % 60
+	return fmt.Sprintf("%02d:%02d:%02d", h, m, s)
 }
 
 func init() {

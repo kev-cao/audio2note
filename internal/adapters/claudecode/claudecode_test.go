@@ -3,6 +3,7 @@ package claudecode
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"audio2note/internal/summarizer"
 )
@@ -97,5 +98,73 @@ func TestBuildPrompt_OmitsOutputFileButKeepsVault(t *testing.T) {
 	}
 	if !strings.Contains(got, "Obsidian vault located at /path/to/vault") {
 		t.Errorf("vault sentence missing; prompt: %q", got)
+	}
+}
+
+func TestFormatHighlight(t *testing.T) {
+	cases := []struct {
+		in   time.Duration
+		want string
+	}{
+		{0, "00:00:00"},
+		{5*time.Minute + 23*time.Second, "00:05:23"},
+		{1*time.Hour + 2*time.Minute + 3*time.Second, "01:02:03"},
+		{2*time.Hour + 30*time.Minute, "02:30:00"},
+		// Rounding to whole seconds.
+		{(961640) * time.Millisecond, "00:16:02"},
+	}
+	for _, tc := range cases {
+		if got := formatHighlight(tc.in); got != tc.want {
+			t.Errorf("formatHighlight(%v) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestBuildPrompt_WithHighlights(t *testing.T) {
+	got := buildPrompt(summarizer.Input{
+		TranscriptFile: "/abs/transcript.txt",
+		Highlights: []time.Duration{
+			5*time.Minute + 23*time.Second,
+			27 * time.Minute,
+		},
+	})
+	if !strings.Contains(got, "user marked the following moments") {
+		t.Errorf("highlights intro missing\nprompt: %q", got)
+	}
+	if !strings.Contains(got, "- 00:05:23") {
+		t.Errorf("first timestamp missing\nprompt: %q", got)
+	}
+	if !strings.Contains(got, "- 00:27:00") {
+		t.Errorf("second timestamp missing\nprompt: %q", got)
+	}
+	if !strings.Contains(got, "Pay special attention") {
+		t.Errorf("guidance sentence missing\nprompt: %q", got)
+	}
+}
+
+func TestBuildPrompt_OmitsHighlightsWhenEmpty(t *testing.T) {
+	got := buildPrompt(summarizer.Input{
+		TranscriptFile: "/abs/transcript.txt",
+	})
+	if strings.Contains(got, "highlights") || strings.Contains(got, "Highlights") {
+		t.Errorf("highlight paragraph should be omitted when Highlights is empty\nprompt: %q", got)
+	}
+}
+
+func TestBuildPrompt_HighlightsBetweenVaultAndExtra(t *testing.T) {
+	got := buildPrompt(summarizer.Input{
+		TranscriptFile: "/abs/transcript.txt",
+		ObsidianVault:  "/path/to/vault",
+		Highlights:     []time.Duration{1 * time.Minute},
+		ExtraPrompt:    "Use bullet points.",
+	})
+	vaultIdx := strings.Index(got, "Obsidian vault")
+	highlightIdx := strings.Index(got, "user marked the following moments")
+	extraIdx := strings.Index(got, "Use bullet points.")
+	if vaultIdx < 0 || highlightIdx < 0 || extraIdx < 0 {
+		t.Fatalf("missing fragments\nprompt: %q", got)
+	}
+	if !(vaultIdx < highlightIdx && highlightIdx < extraIdx) {
+		t.Errorf("ordering should be vault → highlights → extra; got vault=%d highlight=%d extra=%d", vaultIdx, highlightIdx, extraIdx)
 	}
 }

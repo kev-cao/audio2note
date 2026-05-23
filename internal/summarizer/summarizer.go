@@ -4,6 +4,7 @@ package summarizer
 
 import (
 	"context"
+	"time"
 
 	"audio2note/internal/registry"
 )
@@ -27,6 +28,10 @@ type Input struct {
 	// ExtraPrompt is user-supplied text appended to the summarizer's prompt
 	// template. Empty string means no addition.
 	ExtraPrompt string
+	// Highlights are timestamps (offsets from the start of the recording)
+	// marked by the user as important. Empty/nil means no highlights to call
+	// out.
+	Highlights []time.Duration
 }
 
 type Summarizer interface {

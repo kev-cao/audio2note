@@ -3,9 +3,11 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"audio2note/internal/plaud"
 	"audio2note/internal/plaudpicker"
@@ -30,6 +32,7 @@ type Options struct {
 	ExtraPrompt           string
 	EditSpeakerLabels     bool
 	PlaudClient           plaud.Client // nil = not in --plaud mode
+	Highlights            []time.Duration
 }
 
 func Run(ctx context.Context, opts Options) error {
@@ -72,6 +75,7 @@ func Run(ctx context.Context, opts Options) error {
 			ExtraArgs:      opts.SummarizerArgs,
 			NoDefaults:     opts.SummarizerNoDefaults,
 			ExtraPrompt:    opts.ExtraPrompt,
+			Highlights:     opts.Highlights,
 		}
 		if err := opts.Summarizer.Summarize(ctx, in); err != nil {
 			return fmt.Errorf("summarize: %w", err)
@@ -96,24 +100,59 @@ func fetchFromPlaud(ctx context.Context, opts Options) (Options, error) {
 	if !ok {
 		return opts, fmt.Errorf("plaud selection cancelled")
 	}
+	return fetchAfterPick(ctx, opts, selected)
+}
 
+// fetchAfterPick handles the post-picker work: figures out whether to download
+// the recording or the transcript, then always tries to fetch highlights.
+// Highlight fetch failures are non-fatal — summarization is more important
+// than the highlight annotation.
+func fetchAfterPick(ctx context.Context, opts Options, selected plaud.File) (Options, error) {
 	if opts.SkipTranscribe {
-		fmt.Printf("→ downloading transcript for %s → %s\n", selected.Filename, opts.TranscriptFile)
-		path, err := opts.PlaudClient.DownloadTranscript(ctx, selected.ID, opts.TranscriptFile)
-		if err != nil {
-			return opts, fmt.Errorf("download transcript: %w", err)
+		// TODO(plaud-mw-export): once the MacWhisper CLI supports exporting
+		// transcripts with timestamps, this file-existence branch can be
+		// removed. The whole workflow becomes: `--plaud --summarize-only`
+		// always downloads the transcript from Plaud. The current branch
+		// exists so the user can run `--plaud --transcribe-only`, manually
+		// export a timestamped JSON from the MacWhisper desktop app, and
+		// then `--plaud --summarize-only --transcript-file exported.json`
+		// to feed the local file while still pulling highlights from Plaud.
+		switch _, statErr := os.Stat(opts.TranscriptFile); {
+		case statErr == nil:
+			fmt.Printf("→ using existing transcript file %s; fetching highlights only\n", opts.TranscriptFile)
+		case errors.Is(statErr, os.ErrNotExist):
+			fmt.Printf("→ downloading transcript for %s → %s\n", selected.Filename, opts.TranscriptFile)
+			path, err := opts.PlaudClient.DownloadTranscript(ctx, selected.ID, opts.TranscriptFile)
+			if err != nil {
+				return opts, fmt.Errorf("download transcript: %w", err)
+			}
+			opts.TranscriptFile = path
+		default:
+			return opts, fmt.Errorf("transcript file: %w", statErr)
 		}
-		opts.TranscriptFile = path
+	} else {
+		tmpPath := filepath.Join(os.TempDir(), "audio2note-plaud-"+string(selected.ID)+selected.Extension)
+		fmt.Printf("→ downloading recording for %s → %s\n", selected.Filename, tmpPath)
+		path, err := opts.PlaudClient.DownloadRecording(ctx, selected.ID, tmpPath)
+		if err != nil {
+			return opts, fmt.Errorf("download recording: %w", err)
+		}
+		opts.AudioFile = path
+	}
+
+	highlights, err := opts.PlaudClient.GetHighlights(ctx, selected.ID)
+	if err != nil {
+		fmt.Printf("→ couldn't fetch highlights: %v (proceeding without)\n", err)
 		return opts, nil
 	}
-
-	tmpPath := filepath.Join(os.TempDir(), "audio2note-plaud-"+string(selected.ID)+selected.Extension)
-	fmt.Printf("→ downloading recording for %s → %s\n", selected.Filename, tmpPath)
-	path, err := opts.PlaudClient.DownloadRecording(ctx, selected.ID, tmpPath)
-	if err != nil {
-		return opts, fmt.Errorf("download recording: %w", err)
+	if len(highlights) == 0 {
+		return opts, nil
 	}
-	opts.AudioFile = path
+	fmt.Printf("→ got %d highlight(s)\n", len(highlights))
+	opts.Highlights = make([]time.Duration, len(highlights))
+	for i, h := range highlights {
+		opts.Highlights[i] = time.Duration(h)
+	}
 	return opts, nil
 }
 
