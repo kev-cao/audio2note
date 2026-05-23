@@ -20,8 +20,8 @@ func TestListFiles_ParsesAndSendsAuth(t *testing.T) {
 	h.HandleFunc("/file/simple/web", func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
 		_, _ = w.Write([]byte(`{"status":0,"data_file_list":[
-			{"id":"abc123","filename":"meeting","duration":226000},
-			{"id":"def456","filename":"standup","duration":1500}
+			{"id":"abc123","filename":"meeting","fullname":"abc123.mp3","duration":226000,"is_trans":true},
+			{"id":"def456","filename":"standup","fullname":"def456.ogg","duration":1500,"is_trans":false}
 		]}`))
 	})
 	ts := httptest.NewServer(h)
@@ -40,6 +40,18 @@ func TestListFiles_ParsesAndSendsAuth(t *testing.T) {
 	}
 	if files[0].ID != "abc123" || files[0].Filename != "meeting" {
 		t.Errorf("files[0] = %+v", files[0])
+	}
+	if files[0].Extension != ".mp3" {
+		t.Errorf("files[0].Extension = %q, want %q", files[0].Extension, ".mp3")
+	}
+	if !files[0].HasTranscript {
+		t.Errorf("files[0].HasTranscript = false, want true")
+	}
+	if files[1].Extension != ".ogg" {
+		t.Errorf("files[1].Extension = %q, want %q", files[1].Extension, ".ogg")
+	}
+	if files[1].HasTranscript {
+		t.Errorf("files[1].HasTranscript = true, want false")
 	}
 	if want := 226000 * time.Millisecond; files[0].Duration != want {
 		t.Errorf("files[0].Duration = %v, want %v", files[0].Duration, want)

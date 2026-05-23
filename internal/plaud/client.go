@@ -10,9 +10,11 @@ type ID string
 
 // File is a recording listed in a user's Plaud library.
 type File struct {
-	ID       ID
-	Filename string
-	Duration time.Duration
+	ID            ID
+	Filename      string
+	Extension     string // ".mp3", ".ogg", etc. — derived from the storage name
+	Duration      time.Duration
+	HasTranscript bool
 }
 
 // Highlight is a user-marked moment in a recording, expressed as an offset

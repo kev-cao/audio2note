@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"audio2note/internal/pipeline"
+	"audio2note/internal/plaud"
 	"audio2note/internal/summarizer"
 	"audio2note/internal/transcriber"
 
@@ -38,6 +40,7 @@ type flags struct {
 	summarizerNoDefaults  bool
 	prompt                string
 	editSpeakerLabels     bool
+	plaud                 bool
 }
 
 func newRootCmd() *cobra.Command {
@@ -71,6 +74,7 @@ func newRootCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&f.summarizerNoDefaults, "summarizer-no-defaults", false, "Skip the summarizer adapter's hardcoded extra flags")
 	cmd.Flags().StringVar(&f.prompt, "prompt", "", "Extra text appended to the summarizer's prompt (e.g. \"Use bullet points and keep it under 200 words.\")")
 	cmd.Flags().BoolVar(&f.editSpeakerLabels, "edit-speaker-labels", false, "Open an interactive TUI between transcribe and summarize to rename speaker labels in the transcript")
+	cmd.Flags().BoolVar(&f.plaud, "plaud", false, "Pick a recording from your Plaud library instead of providing a local audio file")
 
 	cmd.MarkFlagsMutuallyExclusive("transcribe-only", "summarize-only")
 
@@ -89,11 +93,16 @@ func run(ctx context.Context, audioArg string, f flags, vaultFlagSet bool) error
 		return fmt.Errorf("summarizer: %w", err)
 	}
 
-	// Audio file is only required when we're going to transcribe.
+	if f.plaud && audioArg != "" {
+		return fmt.Errorf("--plaud cannot be combined with a positional audio file")
+	}
+
+	// Audio file is only required when we're going to transcribe AND we're
+	// not sourcing it from Plaud.
 	var audioFile string
-	if !f.summarizeOnly {
+	if !f.summarizeOnly && !f.plaud {
 		if audioArg == "" {
-			return fmt.Errorf("audio file is required (unless --summarize-only is set)")
+			return fmt.Errorf("audio file is required (unless --summarize-only or --plaud is set)")
 		}
 		audioFile, err = filepath.Abs(audioArg)
 		if err != nil {
@@ -101,6 +110,17 @@ func run(ctx context.Context, audioArg string, f flags, vaultFlagSet bool) error
 		}
 		if _, err := os.Stat(audioFile); err != nil {
 			return fmt.Errorf("audio file: %w", err)
+		}
+	}
+
+	var plaudClient plaud.Client
+	if f.plaud {
+		plaudClient, err = plaud.NewClient()
+		if err != nil {
+			if errors.Is(err, plaud.ErrMissing) {
+				return fmt.Errorf("missing bearer token, please run `audio2note plaud auth setup`")
+			}
+			return err
 		}
 	}
 
@@ -142,6 +162,7 @@ func run(ctx context.Context, audioArg string, f flags, vaultFlagSet bool) error
 		SummarizerNoDefaults:  f.summarizerNoDefaults,
 		ExtraPrompt:           f.prompt,
 		EditSpeakerLabels:     f.editSpeakerLabels,
+		PlaudClient:           plaudClient,
 	})
 }
 

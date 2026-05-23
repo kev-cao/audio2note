@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"audio2note/internal/pipeline"
+	"audio2note/internal/plaud"
 	"audio2note/internal/summarizer"
 	"audio2note/internal/transcriber"
 )
@@ -42,6 +43,29 @@ func (f *fakeSummarizer) Summarize(_ context.Context, in summarizer.Input) error
 	f.summarizeCalls++
 	f.lastInput = in
 	return f.summarizeErr
+}
+
+// fakePlaudClient lets us exercise pipeline.fetchFromPlaud's pre-picker
+// branches (list error, empty library) without spinning up a TTY.
+type fakePlaudClient struct {
+	files        []plaud.File
+	listErr      error
+	listCalls    int
+}
+
+func (f *fakePlaudClient) Validate(context.Context) error { return nil }
+func (f *fakePlaudClient) ListFiles(context.Context) ([]plaud.File, error) {
+	f.listCalls++
+	return f.files, f.listErr
+}
+func (f *fakePlaudClient) DownloadRecording(context.Context, plaud.ID, string) (string, error) {
+	return "", errors.New("not implemented in fake")
+}
+func (f *fakePlaudClient) DownloadTranscript(context.Context, plaud.ID, string) (string, error) {
+	return "", errors.New("not implemented in fake")
+}
+func (f *fakePlaudClient) GetHighlights(context.Context, plaud.ID) ([]plaud.Highlight, error) {
+	return nil, nil
 }
 
 // fakeSpeakerEditor satisfies both Transcriber and SpeakerLabelEditor.
@@ -314,5 +338,45 @@ func TestRun_EditLabels_EmptySpeakerListIsNoop(t *testing.T) {
 	})
 	if err != nil {
 		t.Errorf("expected no error when no speakers found, got %v", err)
+	}
+}
+
+// --- tests: --plaud pre-picker error paths ---
+//
+// We can't drive plaudpicker.Pick from a test (it requires a TTY), so we only
+// cover the branches in fetchFromPlaud that fire before the picker opens.
+
+func TestRun_Plaud_ListFilesErrorPropagates(t *testing.T) {
+	fpc := &fakePlaudClient{listErr: errors.New("boom")}
+
+	err := pipeline.Run(context.Background(), pipeline.Options{
+		Transcriber:    &fakeTranscriber{name: "ft"},
+		Summarizer:     &fakeSummarizer{name: "fs"},
+		TranscriptFile: writeTranscriptFile(t, ""),
+		SkipTranscribe: true,
+		SkipSummarize:  true,
+		PlaudClient:    fpc,
+	})
+	if err == nil || !strings.Contains(err.Error(), "boom") {
+		t.Errorf("expected wrapped 'boom' error, got %v", err)
+	}
+	if fpc.listCalls != 1 {
+		t.Errorf("ListFiles calls = %d, want 1", fpc.listCalls)
+	}
+}
+
+func TestRun_Plaud_EmptyLibraryErrors(t *testing.T) {
+	fpc := &fakePlaudClient{files: nil}
+
+	err := pipeline.Run(context.Background(), pipeline.Options{
+		Transcriber:    &fakeTranscriber{},
+		Summarizer:     &fakeSummarizer{},
+		TranscriptFile: writeTranscriptFile(t, ""),
+		SkipTranscribe: true,
+		SkipSummarize:  true,
+		PlaudClient:    fpc,
+	})
+	if err == nil || !strings.Contains(err.Error(), "empty") {
+		t.Errorf("expected 'empty' error, got %v", err)
 	}
 }

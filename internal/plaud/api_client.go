@@ -63,7 +63,9 @@ func (c *apiClient) ListFiles(ctx context.Context) ([]File, error) {
 		DataFileList []struct {
 			ID       ID     `json:"id"`
 			Filename string `json:"filename"`
+			Fullname string `json:"fullname"`
 			Duration int64  `json:"duration"`
+			IsTrans  bool   `json:"is_trans"`
 		} `json:"data_file_list"`
 	}
 	if err := c.doAPI(ctx, "GET", "/file/simple/web", &resp); err != nil {
@@ -72,9 +74,11 @@ func (c *apiClient) ListFiles(ctx context.Context) ([]File, error) {
 	out := make([]File, len(resp.DataFileList))
 	for i, f := range resp.DataFileList {
 		out[i] = File{
-			ID:       f.ID,
-			Filename: f.Filename,
-			Duration: time.Duration(f.Duration) * time.Millisecond,
+			ID:            f.ID,
+			Filename:      f.Filename,
+			Extension:     filepath.Ext(f.Fullname),
+			Duration:      time.Duration(f.Duration) * time.Millisecond,
+			HasTranscript: f.IsTrans,
 		}
 	}
 	return out, nil

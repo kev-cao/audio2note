@@ -5,7 +5,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
+	"audio2note/internal/plaud"
+	"audio2note/internal/plaudpicker"
 	"audio2note/internal/speakeredit"
 	"audio2note/internal/summarizer"
 	"audio2note/internal/transcriber"
@@ -26,9 +29,18 @@ type Options struct {
 	SummarizerNoDefaults  bool
 	ExtraPrompt           string
 	EditSpeakerLabels     bool
+	PlaudClient           plaud.Client // nil = not in --plaud mode
 }
 
 func Run(ctx context.Context, opts Options) error {
+	if opts.PlaudClient != nil {
+		var err error
+		opts, err = fetchFromPlaud(ctx, opts)
+		if err != nil {
+			return err
+		}
+	}
+
 	if !opts.SkipTranscribe {
 		fmt.Printf("→ transcribing %s with %s → %s\n", opts.AudioFile, opts.Transcriber.Name(), opts.TranscriptFile)
 		in := transcriber.Input{
@@ -66,6 +78,43 @@ func Run(ctx context.Context, opts Options) error {
 		}
 	}
 	return nil
+}
+
+func fetchFromPlaud(ctx context.Context, opts Options) (Options, error) {
+	fmt.Println("→ fetching Plaud library…")
+	files, err := opts.PlaudClient.ListFiles(ctx)
+	if err != nil {
+		return opts, fmt.Errorf("plaud list files: %w", err)
+	}
+	if len(files) == 0 {
+		return opts, fmt.Errorf("plaud library is empty")
+	}
+	selected, ok, err := plaudpicker.Pick(files)
+	if err != nil {
+		return opts, fmt.Errorf("plaud picker: %w", err)
+	}
+	if !ok {
+		return opts, fmt.Errorf("plaud selection cancelled")
+	}
+
+	if opts.SkipTranscribe {
+		fmt.Printf("→ downloading transcript for %s → %s\n", selected.Filename, opts.TranscriptFile)
+		path, err := opts.PlaudClient.DownloadTranscript(ctx, selected.ID, opts.TranscriptFile)
+		if err != nil {
+			return opts, fmt.Errorf("download transcript: %w", err)
+		}
+		opts.TranscriptFile = path
+		return opts, nil
+	}
+
+	tmpPath := filepath.Join(os.TempDir(), "audio2note-plaud-"+string(selected.ID)+selected.Extension)
+	fmt.Printf("→ downloading recording for %s → %s\n", selected.Filename, tmpPath)
+	path, err := opts.PlaudClient.DownloadRecording(ctx, selected.ID, tmpPath)
+	if err != nil {
+		return opts, fmt.Errorf("download recording: %w", err)
+	}
+	opts.AudioFile = path
+	return opts, nil
 }
 
 func runSpeakerEdit(opts Options) error {
