@@ -74,6 +74,8 @@ func newRootCmd() *cobra.Command {
 
 	cmd.MarkFlagsMutuallyExclusive("transcribe-only", "summarize-only")
 
+	cmd.AddCommand(newPlaudCmd())
+
 	return cmd
 }
 
