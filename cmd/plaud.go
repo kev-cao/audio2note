@@ -70,14 +70,14 @@ func newPlaudAuthValidateCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			token, err := plaud.LoadToken()
+			c, err := plaud.NewClient()
 			if err != nil {
 				if errors.Is(err, plaud.ErrMissing) {
 					return errors.New("missing bearer token, please run `audio2note plaud auth setup`")
 				}
 				return err
 			}
-			if err := plaud.Validate(token); err != nil {
+			if err := c.Validate(cmd.Context()); err != nil {
 				return errors.New("bearer token expired, please run `audio2note plaud auth setup`")
 			}
 			fmt.Println("token verified!")
