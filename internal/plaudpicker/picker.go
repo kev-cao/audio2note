@@ -17,7 +17,10 @@ import (
 var (
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
-			Padding(0, 0, 1, 2)
+			Foreground(lipgloss.Color("15")).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("12")).
+			Padding(0, 2)
 
 	selectedPrefixStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("12")).
@@ -129,6 +132,7 @@ func Pick(files []plaud.File) (plaud.File, bool, error) {
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(true)
 	l.Styles.Title = titleStyle
+	l.Styles.TitleBar = l.Styles.TitleBar.PaddingBottom(0)
 
 	final, err := tea.NewProgram(model{list: l}, tea.WithAltScreen()).Run()
 	if err != nil {
