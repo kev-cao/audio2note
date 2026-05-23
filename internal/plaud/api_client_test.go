@@ -124,7 +124,7 @@ func TestGetFileDetails_ExtractsAndCaches(t *testing.T) {
 				"content_list": []map[string]any{
 					{"data_type": "transaction", "data_link": "https://s3.example/trans.gz"},
 					{"data_type": "outline", "data_link": "https://s3.example/outline"},
-					{"data_type": "high_light", "data_link": "https://s3.example/hl"},
+					{"data_type": "mark_memo", "data_link": "https://s3.example/hl"},
 					{"data_type": "auto_sum_note", "data_link": "https://s3.example/sum"},
 				},
 			},
@@ -230,7 +230,7 @@ func TestGetHighlights_ExtractsTimestamps(t *testing.T) {
 			"status": 0,
 			"data": map[string]any{
 				"content_list": []map[string]any{
-					{"data_type": "high_light", "data_link": s3.URL + "/hl"},
+					{"data_type": "mark_memo", "data_link": s3.URL + "/hl"},
 				},
 			},
 		})

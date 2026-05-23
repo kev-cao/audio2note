@@ -161,7 +161,11 @@ func (c *apiClient) getFileDetails(ctx context.Context, id ID) (fileDetails, err
 		switch item.DataType {
 		case "transaction":
 			fd.TranscriptURL = item.DataLink
-		case "high_light":
+		case "mark_memo":
+			// `mark_memo` is the user-authored highlights file. The
+			// `high_light` data_type is a separate concept that only exists
+			// when Plaud performed the transcription itself, so we don't
+			// match on it here.
 			fd.HighlightsURL = item.DataLink
 		}
 	}
