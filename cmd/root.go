@@ -4,7 +4,6 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"audio2note/internal/pipeline"
-	"audio2note/internal/plaud"
 	"audio2note/internal/summarizer"
 	"audio2note/internal/transcriber"
 
@@ -40,7 +38,6 @@ type flags struct {
 	summarizerNoDefaults  bool
 	prompt                string
 	editSpeakerLabels     bool
-	plaud                 bool
 }
 
 func newRootCmd() *cobra.Command {
@@ -60,6 +57,14 @@ func newRootCmd() *cobra.Command {
 		},
 	}
 
+	addPipelineFlags(cmd, &f)
+	cmd.AddCommand(newPlaudCmd())
+	return cmd
+}
+
+// addPipelineFlags registers the shared pipeline flags on cmd. Used by the
+// root command (local audio file flow) and by `plaud run` (Plaud source flow).
+func addPipelineFlags(cmd *cobra.Command, f *flags) {
 	cmd.Flags().StringVar(&f.transcriber, "transcriber", "macwhisper", "Transcriber adapter to use")
 	cmd.Flags().StringVar(&f.summarizer, "summarizer", "claudecode", "Summarizer adapter to use")
 	cmd.Flags().StringVar(&f.transcriptFile, "transcript-file", "", "Path to the transcript file (defaults to the transcriber's default filename in cwd)")
@@ -74,81 +79,91 @@ func newRootCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&f.summarizerNoDefaults, "summarizer-no-defaults", false, "Skip the summarizer adapter's hardcoded extra flags")
 	cmd.Flags().StringVar(&f.prompt, "prompt", "", "Extra text appended to the summarizer's prompt (e.g. \"Use bullet points and keep it under 200 words.\")")
 	cmd.Flags().BoolVar(&f.editSpeakerLabels, "edit-speaker-labels", false, "Open an interactive TUI between transcribe and summarize to rename speaker labels in the transcript")
-	cmd.Flags().BoolVar(&f.plaud, "plaud", false, "Pick a recording from your Plaud library instead of providing a local audio file")
 
 	cmd.MarkFlagsMutuallyExclusive("transcribe-only", "summarize-only")
-
-	cmd.AddCommand(newPlaudCmd())
-
-	return cmd
 }
 
 func run(ctx context.Context, audioArg string, f flags, vaultFlagSet bool) error {
-	tr, err := transcriber.Get(f.transcriber)
-	if err != nil {
-		return fmt.Errorf("transcriber: %w", err)
-	}
-	sum, err := summarizer.Get(f.summarizer)
-	if err != nil {
-		return fmt.Errorf("summarizer: %w", err)
-	}
-
-	if f.plaud && audioArg != "" {
-		return fmt.Errorf("--plaud cannot be combined with a positional audio file")
-	}
-
-	// Audio file is only required when we're going to transcribe AND we're
-	// not sourcing it from Plaud.
-	var audioFile string
-	if !f.summarizeOnly && !f.plaud {
-		if audioArg == "" {
-			return fmt.Errorf("audio file is required (unless --summarize-only or --plaud is set)")
-		}
-		audioFile, err = filepath.Abs(audioArg)
-		if err != nil {
-			return fmt.Errorf("resolve audio file: %w", err)
-		}
-		if _, err := os.Stat(audioFile); err != nil {
-			return fmt.Errorf("audio file: %w", err)
-		}
-	}
-
-	var plaudClient plaud.Client
-	if f.plaud {
-		plaudClient, err = plaud.NewClient()
-		if err != nil {
-			if errors.Is(err, plaud.ErrMissing) {
-				return fmt.Errorf("missing bearer token, please run `audio2note plaud auth setup`")
-			}
-			return err
-		}
-	}
-
-	transcriptPath := f.transcriptFile
-	if transcriptPath == "" {
-		transcriptPath = tr.DefaultTranscriptFile()
-	}
-	transcriptPath, err = filepath.Abs(transcriptPath)
-	if err != nil {
-		return fmt.Errorf("resolve transcript file: %w", err)
-	}
-
-	vault, err := resolveVault(f, vaultFlagSet)
+	audioPath, err := resolveAudioFile(audioArg, f)
 	if err != nil {
 		return err
 	}
+	transcriptPath, err := resolveTranscriptPath(f)
+	if err != nil {
+		return err
+	}
+	opts, err := buildOptions(f, audioPath, transcriptPath, vaultFlagSet)
+	if err != nil {
+		return err
+	}
+	return pipeline.Run(ctx, opts)
+}
 
+// resolveAudioFile reads the positional audio file argument. Empty when the
+// caller is in `--summarize-only` mode (no audio needed) — otherwise required.
+func resolveAudioFile(audioArg string, f flags) (string, error) {
+	if f.summarizeOnly {
+		return "", nil
+	}
+	if audioArg == "" {
+		return "", fmt.Errorf("audio file is required (unless --summarize-only is set)")
+	}
+	abs, err := filepath.Abs(audioArg)
+	if err != nil {
+		return "", fmt.Errorf("resolve audio file: %w", err)
+	}
+	if _, err := os.Stat(abs); err != nil {
+		return "", fmt.Errorf("audio file: %w", err)
+	}
+	return abs, nil
+}
+
+// resolveTranscriptPath picks the transcript file path: --transcript-file if
+// set, otherwise the chosen transcriber's default filename. Always returned as
+// an absolute path.
+func resolveTranscriptPath(f flags) (string, error) {
+	tr, err := transcriber.Get(f.transcriber)
+	if err != nil {
+		return "", fmt.Errorf("transcriber: %w", err)
+	}
+	p := f.transcriptFile
+	if p == "" {
+		p = tr.DefaultTranscriptFile()
+	}
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		return "", fmt.Errorf("resolve transcript file: %w", err)
+	}
+	return abs, nil
+}
+
+// buildOptions resolves the registry-looked-up transcriber / summarizer, the
+// vault, the shlex-split args, and assembles a fully-populated
+// pipeline.Options. The caller is responsible for setting source-specific
+// fields like Highlights afterward.
+func buildOptions(f flags, audioPath, transcriptPath string, vaultFlagSet bool) (pipeline.Options, error) {
+	tr, err := transcriber.Get(f.transcriber)
+	if err != nil {
+		return pipeline.Options{}, fmt.Errorf("transcriber: %w", err)
+	}
+	sum, err := summarizer.Get(f.summarizer)
+	if err != nil {
+		return pipeline.Options{}, fmt.Errorf("summarizer: %w", err)
+	}
+	vault, err := resolveVault(f, vaultFlagSet)
+	if err != nil {
+		return pipeline.Options{}, err
+	}
 	transcriberArgs, err := splitArgs(f.transcriberArgs)
 	if err != nil {
-		return fmt.Errorf("--transcriber-args: %w", err)
+		return pipeline.Options{}, fmt.Errorf("--transcriber-args: %w", err)
 	}
 	summarizerArgs, err := splitArgs(f.summarizerArgs)
 	if err != nil {
-		return fmt.Errorf("--summarizer-args: %w", err)
+		return pipeline.Options{}, fmt.Errorf("--summarizer-args: %w", err)
 	}
-
-	return pipeline.Run(ctx, pipeline.Options{
-		AudioFile:             audioFile,
+	return pipeline.Options{
+		AudioFile:             audioPath,
 		Transcriber:           tr,
 		Summarizer:            sum,
 		TranscriptFile:        transcriptPath,
@@ -162,8 +177,7 @@ func run(ctx context.Context, audioArg string, f flags, vaultFlagSet bool) error
 		SummarizerNoDefaults:  f.summarizerNoDefaults,
 		ExtraPrompt:           f.prompt,
 		EditSpeakerLabels:     f.editSpeakerLabels,
-		PlaudClient:           plaudClient,
-	})
+	}, nil
 }
 
 // splitArgs runs a shell-style split over s. Empty input returns nil.

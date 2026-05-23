@@ -6,7 +6,10 @@
       "Bash(touch /tmp/dummy.mp3)",
       "Bash(OBSIDIAN_VAULT_PATH= ./audio2note --obsidian /tmp/dummy.mp3)",
       "Bash(mw --help)",
-      "Bash(mw transcribe *)"
+      "Bash(mw transcribe *)",
+      "Bash(curl -s -o /tmp/plaud-resp.json -w 'HTTP %{http_code}\\\\n' -H \"Authorization: bearer $\\(cat ~/.plaud/token\\)\" https://api.plaud.ai/user-app/profile/workspace/me)",
+      "Bash(curl -s -o /tmp/plaud-files.json -w 'HTTP %{http_code}\\\\n' -H \"Authorization: bearer $\\(cat ~/.plaud/token\\)\" https://api.plaud.ai/file/simple/web)",
+      "Bash(curl -s -o /tmp/plaud-me.json -w 'HTTP %{http_code}\\\\n' -H \"Authorization: bearer $\\(cat ~/.plaud/token\\)\" https://api.plaud.ai/user/me)"
     ]
   }
 }
