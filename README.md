@@ -22,7 +22,7 @@ The project is built around `Transcriber` and `Summarizer` interfaces so swappin
 ## Build
 
 ```sh
-go build -o audio2note .
+go build -o bin/audio2note .
 ```
 
 ## Usage

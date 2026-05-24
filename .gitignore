@@ -1,0 +1,6 @@
+# Build output
+/bin/
+
+# Defense in depth — never commit a binary at the repo root, regardless of
+# whether someone runs `go build -o bin/...` or `go build .`.
+/audio2note
