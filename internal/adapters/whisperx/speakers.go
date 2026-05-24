@@ -1,0 +1,207 @@
+package whisperx
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"audio2note/internal/transcriber"
+)
+
+// whisperx's JSON output has the shape:
+//
+//	{
+//	  "segments": [
+//	    {"speaker": "SPEAKER_00", "text": "...", "start": 0.0, "end": 1.5, ...},
+//	    ...
+//	  ],
+//	  "language": "en",
+//	  ...
+//	}
+//
+// We round-trip the top-level object and each segment through
+// map[string]json.RawMessage so unrelated fields (language, word-level
+// alignment, etc.) survive an ApplyRenames rewrite.
+
+const (
+	segmentsKey = "segments"
+	speakerKey  = "speaker"
+	textKey     = "text"
+)
+
+type segment map[string]json.RawMessage
+
+func (s segment) speaker() (string, bool) {
+	raw, ok := s[speakerKey]
+	if !ok {
+		return "", false
+	}
+	var v string
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return "", false
+	}
+	return v, true
+}
+
+func (s segment) text() string {
+	raw, ok := s[textKey]
+	if !ok {
+		return ""
+	}
+	var v string
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return ""
+	}
+	return v
+}
+
+type document map[string]json.RawMessage
+
+func readDocument(path string) (document, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var d document
+	if err := json.Unmarshal(data, &d); err != nil {
+		return nil, fmt.Errorf("parse %s as JSON object: %w", filepath.Base(path), err)
+	}
+	return d, nil
+}
+
+func segmentsFrom(d document) ([]segment, error) {
+	raw, ok := d[segmentsKey]
+	if !ok {
+		return nil, nil
+	}
+	var segs []segment
+	if err := json.Unmarshal(raw, &segs); err != nil {
+		return nil, fmt.Errorf("parse segments: %w", err)
+	}
+	return segs, nil
+}
+
+func (WhisperX) HasSpeakerLabels(path string) (bool, error) {
+	if !strings.EqualFold(filepath.Ext(path), ".json") {
+		return false, nil
+	}
+	d, err := readDocument(path)
+	if err != nil {
+		// Parse failure → format we don't recognize → false (not an error)
+		var typeErr *json.UnmarshalTypeError
+		if errors.As(err, &typeErr) {
+			return false, nil
+		}
+		var syntaxErr *json.SyntaxError
+		if errors.As(err, &syntaxErr) {
+			return false, nil
+		}
+		if strings.Contains(err.Error(), "parse ") {
+			return false, nil
+		}
+		return false, err
+	}
+	segs, err := segmentsFrom(d)
+	if err != nil || len(segs) == 0 {
+		return false, nil
+	}
+	_, ok := segs[0][speakerKey]
+	return ok, nil
+}
+
+func (WhisperX) LoadSpeakers(path string) ([]transcriber.Speaker, error) {
+	d, err := readDocument(path)
+	if err != nil {
+		return nil, err
+	}
+	segs, err := segmentsFrom(d)
+	if err != nil {
+		return nil, err
+	}
+	indexByName := map[string]int{}
+	var speakers []transcriber.Speaker
+	for _, seg := range segs {
+		name, ok := seg.speaker()
+		if !ok {
+			continue
+		}
+		quote := transcriber.Quote{Text: seg.text()}
+		if idx, seen := indexByName[name]; seen {
+			speakers[idx].Quotes = append(speakers[idx].Quotes, quote)
+			continue
+		}
+		indexByName[name] = len(speakers)
+		speakers = append(speakers, transcriber.Speaker{
+			Name:   name,
+			Quotes: []transcriber.Quote{quote},
+		})
+	}
+	return speakers, nil
+}
+
+func (WhisperX) ApplyRenames(path string, renames map[string]string) error {
+	if len(renames) == 0 {
+		return nil
+	}
+	d, err := readDocument(path)
+	if err != nil {
+		return err
+	}
+	segs, err := segmentsFrom(d)
+	if err != nil {
+		return err
+	}
+	for _, seg := range segs {
+		name, ok := seg.speaker()
+		if !ok {
+			continue
+		}
+		newName, ok := renames[name]
+		if !ok {
+			continue
+		}
+		encoded, err := json.Marshal(newName)
+		if err != nil {
+			return fmt.Errorf("encode speaker name: %w", err)
+		}
+		seg[speakerKey] = encoded
+	}
+	rawSegs, err := json.Marshal(segs)
+	if err != nil {
+		return fmt.Errorf("encode segments: %w", err)
+	}
+	d[segmentsKey] = rawSegs
+	out, err := json.MarshalIndent(d, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode document: %w", err)
+	}
+	return atomicWrite(path, out)
+}
+
+// atomicWrite writes data to a sibling temp file and renames it over path.
+func atomicWrite(path string, data []byte) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, filepath.Base(path)+".tmp.*")
+	if err != nil {
+		return fmt.Errorf("create temp file: %w", err)
+	}
+	tmpPath := tmp.Name()
+	cleanup := func() { _ = os.Remove(tmpPath) }
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		cleanup()
+		return fmt.Errorf("write temp file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		cleanup()
+		return fmt.Errorf("close temp file: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		cleanup()
+		return fmt.Errorf("rename over %s: %w", path, err)
+	}
+	return nil
+}

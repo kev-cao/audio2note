@@ -62,6 +62,9 @@ func buildArgs(in transcriber.Input, outDir string) []string {
 			"--device", "cuda",
 			"--output_format", "json",
 			"--diarize",
+			"--no_align",
+			"--print_progress", "True",
+			"--verbose", "False",
 		)
 	}
 	// Always set --output_dir so the adapter can find the result regardless

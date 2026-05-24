@@ -1,0 +1,13 @@
+{
+  "segments": [
+    {"speaker": "SPEAKER_00", "text": "Good morning everyone, thanks for joining.", "start": 0.00, "end": 2.85},
+    {"speaker": "SPEAKER_01", "text": "Glad to be here.", "start": 2.85, "end": 4.20},
+    {"speaker": "SPEAKER_00", "text": "Let's start with the Q3 roadmap.", "start": 4.20, "end": 6.10},
+    {"speaker": "SPEAKER_02", "text": "Before we dive in, do we have the latest revenue numbers?", "start": 6.10, "end": 8.70},
+    {"speaker": "SPEAKER_01", "text": "I pulled them yesterday. We're up 12% QoQ.", "start": 8.70, "end": 12.15},
+    {"speaker": "SPEAKER_00", "text": "Solid. That tracks with the leadership forecast.", "start": 12.15, "end": 15.30},
+    {"speaker": "SPEAKER_02", "text": "The biggest open question is the dashboard ship date.", "start": 15.30, "end": 19.20},
+    {"speaker": "SPEAKER_01", "text": "Engineering capacity is the gating factor right now.", "start": 19.20, "end": 23.55}
+  ],
+  "language": "en"
+}
