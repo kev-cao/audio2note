@@ -67,8 +67,8 @@ func newRootCmd() *cobra.Command {
 // addPipelineFlags registers the shared pipeline flags on cmd. Used by the
 // root command (local audio file flow) and by `plaud run` (Plaud source flow).
 func addPipelineFlags(cmd *cobra.Command, f *flags) {
-	cmd.Flags().StringVar(&f.transcriber, "transcriber", "macwhisper", "Transcriber adapter to use")
-	cmd.Flags().StringVar(&f.summarizer, "summarizer", "claudecode", "Summarizer adapter to use")
+	addRegistryFlag(cmd, &f.transcriber, "transcriber", "macwhisper", "Transcriber adapter to use", transcriber.Names)
+	addRegistryFlag(cmd, &f.summarizer, "summarizer", "claudecode", "Summarizer adapter to use", summarizer.Names)
 	cmd.Flags().StringVar(&f.transcriptFile, "transcript-file", "", "Path to the transcript file (defaults to the transcriber's default filename in cwd)")
 	cmd.Flags().BoolVar(&f.obsidian, "obsidian", false, "Write notes to the Obsidian vault at $"+obsidianVaultEnv)
 	cmd.Flags().StringVar(&f.obsidianVault, "obsidian-vault", "", "Explicit Obsidian vault path (implies --obsidian)")
