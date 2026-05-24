@@ -19,6 +19,7 @@ import (
 	// adapter = new package + one line here.
 	_ "audio2note/internal/adapters/claudecode"
 	_ "audio2note/internal/adapters/macwhisper"
+	_ "audio2note/internal/adapters/opencode"
 )
 
 const obsidianVaultEnv = "OBSIDIAN_VAULT_PATH"
