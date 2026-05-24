@@ -157,8 +157,8 @@ func TestCheckHuggingFaceAuth_Missing(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when no HF auth is present")
 	}
-	if !strings.Contains(err.Error(), "huggingface-cli login") {
-		t.Errorf("error should suggest `huggingface-cli login`; got %q", err.Error())
+	if !strings.Contains(err.Error(), "hf auth login") {
+		t.Errorf("error should suggest `hf auth login`; got %q", err.Error())
 	}
 }
 

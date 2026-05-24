@@ -2,7 +2,7 @@
 //
 // Defaults: --model small --device cuda --output_format json --diarize.
 // --diarize requires HuggingFace authentication (HF_TOKEN env var or
-// `huggingface-cli login`); the adapter pre-checks this and surfaces a
+// `hf auth login`); the adapter pre-checks this and surfaces a
 // clear error instead of letting whisperx fail downstream.
 //
 // whisperx writes its output as <output_dir>/<audio-stem>.<ext> — there's
@@ -94,7 +94,7 @@ func renameStemFile(audioFile, requested, outDir string) error {
 // checkHuggingFaceAuth returns nil if HF_TOKEN is set or a HuggingFace
 // token file is present on disk; otherwise it returns an instruction-style
 // error. The token file path is the standard location written by
-// `huggingface-cli login`.
+// `hf auth login`.
 func checkHuggingFaceAuth() error {
 	if os.Getenv("HF_TOKEN") != "" {
 		return nil
@@ -106,7 +106,7 @@ func checkHuggingFaceAuth() error {
 			return nil
 		}
 	}
-	return errors.New("whisperx --diarize requires HuggingFace authentication; please run `huggingface-cli login` or set $HF_TOKEN")
+	return errors.New("whisperx --diarize requires HuggingFace authentication; please run `hf auth login` or set $HF_TOKEN")
 }
 
 func init() { transcriber.Register(WhisperX{}) }
