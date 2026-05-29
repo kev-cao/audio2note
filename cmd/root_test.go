@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"context"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -71,6 +74,55 @@ func TestResolveVault(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestResolveAudioFiles(t *testing.T) {
+	dir := t.TempDir()
+	a := filepath.Join(dir, "a.mp3")
+	b := filepath.Join(dir, "b.mp3")
+	for _, p := range []string{a, b} {
+		if err := os.WriteFile(p, []byte("fake"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	t.Run("summarize-only with no args returns empty", func(t *testing.T) {
+		got, err := resolveAudioFiles(context.Background(), nil, flags{summarizeOnly: true})
+		if err != nil || got != "" {
+			t.Errorf("got %q, %v; want \"\", nil", got, err)
+		}
+	})
+
+	t.Run("summarize-only with args errors", func(t *testing.T) {
+		_, err := resolveAudioFiles(context.Background(), []string{a}, flags{summarizeOnly: true})
+		if err == nil || !strings.Contains(err.Error(), "--summarize-only") {
+			t.Errorf("want --summarize-only error; got %v", err)
+		}
+	})
+
+	t.Run("no args requires file", func(t *testing.T) {
+		_, err := resolveAudioFiles(context.Background(), nil, flags{})
+		if err == nil || !strings.Contains(err.Error(), "required") {
+			t.Errorf("want 'required' error; got %v", err)
+		}
+	})
+
+	t.Run("single arg returns absolute path unchanged", func(t *testing.T) {
+		got, err := resolveAudioFiles(context.Background(), []string{a}, flags{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != a {
+			t.Errorf("got %q, want %q", got, a)
+		}
+	})
+
+	t.Run("missing file errors", func(t *testing.T) {
+		_, err := resolveAudioFiles(context.Background(), []string{filepath.Join(dir, "nope.mp3")}, flags{})
+		if err == nil {
+			t.Errorf("want error for missing file")
+		}
+	})
 }
 
 func TestSplitArgs(t *testing.T) {

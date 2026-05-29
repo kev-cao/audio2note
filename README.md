@@ -18,6 +18,7 @@ The project is built around `Transcriber` and `Summarizer` interfaces so swappin
 - Go 1.22+
 - [MacWhisper](https://goodsnooze.gumroad.com/l/macwhisper) with the `mw` CLI on `PATH`
 - [Claude Code](https://docs.claude.com/en/docs/claude-code) with the `claude` CLI on `PATH`
+- [ffmpeg](https://ffmpeg.org/) on `PATH` — only needed when stitching multiple audio files in one invocation (`brew install ffmpeg`)
 
 ## Build
 
@@ -32,6 +33,16 @@ audio2note meeting.mp3
 ```
 
 That runs the defaults: `mw transcribe meeting.mp3` writes the transcript to `Transcript.txt` in the current directory, then `claude` reads it and writes the meeting notes (claude picks the filename unless you pass `--output-file`).
+
+### Multiple audio files
+
+Pass several files and they're stitched in the given order with `ffmpeg` (stream copy, no re-encode) before being sent to the transcriber:
+
+```sh
+audio2note part1.mp3 part2.mp3 part3.mp3
+```
+
+All inputs must share the same extension/codec. For the `plaud` subcommand, the picker is multi-select (space to toggle, enter to confirm); highlights from every selected recording are merged into a single timeline with offsets matching the stitched audio.
 
 ### Flags
 
@@ -74,6 +85,9 @@ audio2note \
 
 # Only transcribe (skip summarization)
 audio2note --transcribe-only meeting.mp3
+
+# Stitch multiple recordings into one before transcribing (requires ffmpeg)
+audio2note part1.mp3 part2.mp3 part3.mp3
 
 # Only summarize an existing transcript (no audio file needed)
 audio2note --summarize-only --transcript-file /tmp/meeting-transcript.txt

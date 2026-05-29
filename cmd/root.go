@@ -3,24 +3,25 @@
 package cmd
 
 import (
-	"context"
-	"fmt"
-	"os"
-	"path/filepath"
-
-	"github.com/google/shlex"
-	"github.com/spf13/cobra"
-
-	"audio2note/internal/pipeline"
-	"audio2note/internal/summarizer"
-	"audio2note/internal/transcriber"
-
 	// Blank-import adapters so their init() registers them. Adding a new
 	// adapter = new package + one line here.
 	_ "audio2note/internal/adapters/claudecode"
 	_ "audio2note/internal/adapters/macwhisper"
 	_ "audio2note/internal/adapters/opencode"
 	_ "audio2note/internal/adapters/whisperx"
+	"audio2note/internal/audiostitch"
+	"audio2note/internal/pipeline"
+	"audio2note/internal/summarizer"
+	"audio2note/internal/transcriber"
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/google/shlex"
+	"github.com/spf13/cobra"
 )
 
 const obsidianVaultEnv = "OBSIDIAN_VAULT_PATH"
@@ -45,17 +46,13 @@ type flags struct {
 func newRootCmd() *cobra.Command {
 	var f flags
 	cmd := &cobra.Command{
-		Use:           "audio2note <audio-file>",
-		Short:         "Transcribe an audio file and summarize it into meeting notes.",
-		Args:          cobra.MaximumNArgs(1),
+		Use:           "audio2note <audio-file>...",
+		Short:         "Transcribe one or more audio files and summarize them into meeting notes. Multiple files are stitched in the order given.",
+		Args:          cobra.ArbitraryArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			audioArg := ""
-			if len(args) > 0 {
-				audioArg = args[0]
-			}
-			return run(cmd.Context(), audioArg, f, cmd.Flags().Changed("obsidian-vault"))
+			return run(cmd.Context(), args, f, cmd.Flags().Changed("obsidian-vault"))
 		},
 	}
 
@@ -85,8 +82,8 @@ func addPipelineFlags(cmd *cobra.Command, f *flags) {
 	cmd.MarkFlagsMutuallyExclusive("transcribe-only", "summarize-only")
 }
 
-func run(ctx context.Context, audioArg string, f flags, vaultFlagSet bool) error {
-	audioPath, err := resolveAudioFile(audioArg, f)
+func run(ctx context.Context, audioArgs []string, f flags, vaultFlagSet bool) error {
+	audioPath, err := resolveAudioFiles(ctx, audioArgs, f)
 	if err != nil {
 		return err
 	}
@@ -101,23 +98,44 @@ func run(ctx context.Context, audioArg string, f flags, vaultFlagSet bool) error
 	return pipeline.Run(ctx, opts)
 }
 
-// resolveAudioFile reads the positional audio file argument. Empty when the
-// caller is in `--summarize-only` mode (no audio needed) — otherwise required.
-func resolveAudioFile(audioArg string, f flags) (string, error) {
+// resolveAudioFiles reads the positional audio file arguments. Returns empty
+// when the caller is in `--summarize-only` mode (no audio needed). For a
+// single argument, returns its absolute path. For multiple arguments, stitches
+// them in order via ffmpeg and returns the stitched file's path.
+func resolveAudioFiles(ctx context.Context, audioArgs []string, f flags) (string, error) {
 	if f.summarizeOnly {
+		if len(audioArgs) > 0 {
+			return "", fmt.Errorf("--summarize-only does not accept audio file arguments (got %d)", len(audioArgs))
+		}
 		return "", nil
 	}
-	if audioArg == "" {
+	if len(audioArgs) == 0 {
 		return "", fmt.Errorf("audio file is required (unless --summarize-only is set)")
 	}
-	abs, err := filepath.Abs(audioArg)
-	if err != nil {
-		return "", fmt.Errorf("resolve audio file: %w", err)
+
+	abs := make([]string, len(audioArgs))
+	for i, a := range audioArgs {
+		p, err := filepath.Abs(a)
+		if err != nil {
+			return "", fmt.Errorf("resolve audio file %q: %w", a, err)
+		}
+		if _, err := os.Stat(p); err != nil {
+			return "", fmt.Errorf("audio file %q: %w", a, err)
+		}
+		abs[i] = p
 	}
-	if _, err := os.Stat(abs); err != nil {
-		return "", fmt.Errorf("audio file: %w", err)
+
+	if len(abs) == 1 {
+		return abs[0], nil
 	}
-	return abs, nil
+
+	ext := strings.ToLower(filepath.Ext(abs[0]))
+	stitched := filepath.Join(os.TempDir(), fmt.Sprintf("audio2note-stitched-%d%s", time.Now().UnixNano(), ext))
+	fmt.Printf("→ stitching %d audio files → %s\n", len(abs), stitched)
+	if err := audiostitch.Stitch(ctx, abs, stitched); err != nil {
+		return "", err
+	}
+	return stitched, nil
 }
 
 // resolveTranscriptPath picks the transcript file path: --transcript-file if
@@ -143,7 +161,9 @@ func resolveTranscriptPath(f flags) (string, error) {
 // vault, the shlex-split args, and assembles a fully-populated
 // pipeline.Options. The caller is responsible for setting source-specific
 // fields like Highlights afterward.
-func buildOptions(f flags, audioPath, transcriptPath string, vaultFlagSet bool) (pipeline.Options, error) {
+func buildOptions(
+	f flags, audioPath, transcriptPath string, vaultFlagSet bool,
+) (pipeline.Options, error) {
 	tr, err := transcriber.Get(f.transcriber)
 	if err != nil {
 		return pipeline.Options{}, fmt.Errorf("transcriber: %w", err)
