@@ -4,7 +4,6 @@ package claudecode
 
 import (
 	"audio2note/internal/summarizer"
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -15,8 +14,8 @@ import (
 )
 
 // titleSchema is the JSON Schema passed via --json-schema when the caller
-// wants a title back. The schema is what makes Claude emit a final result
-// event whose `structured_output` field contains `{"title": "..."}`.
+// wants a title back. The schema is what makes Claude populate the result
+// blob's `structured_output` field with `{"title": "..."}`.
 const titleSchema = `{"type":"object","properties":{"title":{"type":"string"}},"required":["title"]}`
 
 type ClaudeCode struct{}
@@ -40,12 +39,11 @@ func (ClaudeCode) Summarize(ctx context.Context, in summarizer.Input) (summarize
 		}
 	}
 	if in.RequestTitle {
-		// stream-json keeps the user's live progress feedback intact (we
-		// re-emit the assistant's text content as it arrives); --json-schema
-		// constrains the agent's final structured output so we can pull a
-		// title out of the result event. --verbose is required by claude
-		// when combining -p with stream-json.
-		args = append(args, "--output-format", "stream-json", "--verbose", "--json-schema", titleSchema)
+		// --output-format json gives a single result blob at the end with
+		// structured_output populated by --json-schema. We avoid stream-json
+		// because its live event stream is mostly tool-call noise (Read /
+		// Write / Bash) that isn't useful to surface.
+		args = append(args, "--output-format", "json", "--json-schema", titleSchema)
 	}
 	args = append(args, in.ExtraArgs...)
 	cmd := exec.CommandContext(ctx, "claude", args...)
@@ -56,6 +54,7 @@ func (ClaudeCode) Summarize(ctx context.Context, in summarizer.Input) (summarize
 		return summarizer.Result{}, cmd.Run()
 	}
 
+	fmt.Println("→ summarizing with claude…")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return summarizer.Result{}, fmt.Errorf("claudecode: stdout pipe: %w", err)
@@ -63,70 +62,40 @@ func (ClaudeCode) Summarize(ctx context.Context, in summarizer.Input) (summarize
 	if err := cmd.Start(); err != nil {
 		return summarizer.Result{}, fmt.Errorf("claudecode: start: %w", err)
 	}
-	title := parseStreamJSON(stdout, os.Stdout)
-	if err := cmd.Wait(); err != nil {
-		return summarizer.Result{}, err
+	body, readErr := io.ReadAll(stdout)
+	waitErr := cmd.Wait()
+	if waitErr != nil {
+		return summarizer.Result{}, waitErr
+	}
+	if readErr != nil {
+		return summarizer.Result{}, fmt.Errorf("claudecode: read stdout: %w", readErr)
+	}
+	text, title := parseResult(body)
+	if text != "" {
+		fmt.Println(text)
 	}
 	return summarizer.Result{Title: title}, nil
 }
 
-// parseStreamJSON reads claude's stream-json output line-by-line. Assistant
-// text is mirrored to userOut so the user keeps seeing live progress; tool
-// uses are summarized one-line each. The final `result` event carries the
-// schema-validated structured output — that's where the title comes from. A
-// missing or unparseable title is non-fatal (returns ""), matching the
-// best-effort contract on summarizer.Input.RequestTitle.
-func parseStreamJSON(r io.Reader, userOut io.Writer) string {
-	var title string
-	sc := bufio.NewScanner(r)
-	// Some events (tool inputs, system prompts echoed back) can be large; a
-	// 64KB default token isn't enough.
-	sc.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
-	for sc.Scan() {
-		var ev streamEvent
-		if err := json.Unmarshal(sc.Bytes(), &ev); err != nil {
-			// Unknown line shape — just echo it through so debug info isn't
-			// silently swallowed.
-			fmt.Fprintln(userOut, sc.Text())
-			continue
-		}
-		switch ev.Type {
-		case "assistant":
-			for _, c := range ev.Message.Content {
-				switch c.Type {
-				case "text":
-					if c.Text != "" {
-						fmt.Fprintln(userOut, c.Text)
-					}
-				case "tool_use":
-					fmt.Fprintf(userOut, "[claude] %s\n", c.Name)
-				}
-			}
-		case "result":
-			if ev.StructuredOutput.Title != "" {
-				title = ev.StructuredOutput.Title
-			}
-		}
+// parseResult unmarshals claude's --output-format json result blob and pulls
+// out the final assistant text (to show the user) and the schema-validated
+// title. Both are best-effort: an unparseable blob returns ("", ""), matching
+// the contract on summarizer.Input.RequestTitle.
+func parseResult(body []byte) (text, title string) {
+	var r resultBlob
+	if err := json.Unmarshal(body, &r); err != nil {
+		return "", ""
 	}
-	return title
+	return r.Result, r.StructuredOutput.Title
 }
 
-// streamEvent is the trimmed-down shape of claude's stream-json events. We
-// only model the fields we actually use.
-type streamEvent struct {
-	Type    string `json:"type"`
-	Message struct {
-		Content []streamContent `json:"content"`
-	} `json:"message"`
+// resultBlob is the trimmed-down shape of claude's --output-format json
+// result. We only model the fields we actually use.
+type resultBlob struct {
+	Result           string `json:"result"`
 	StructuredOutput struct {
 		Title string `json:"title"`
 	} `json:"structured_output"`
-}
-
-type streamContent struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
-	Name string `json:"name"`
 }
 
 func init() {
