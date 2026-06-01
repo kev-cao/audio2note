@@ -21,8 +21,7 @@ type fakeTranscriber struct {
 	transcribeErr   error
 }
 
-func (f *fakeTranscriber) Name() string                  { return f.name }
-func (f *fakeTranscriber) DefaultTranscriptFile() string { return "fake.txt" }
+func (f *fakeTranscriber) Name() string { return f.name }
 func (f *fakeTranscriber) Transcribe(_ context.Context, in transcriber.Input) error {
 	f.transcribeCalls++
 	f.lastInput = in

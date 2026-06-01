@@ -3,9 +3,8 @@
 package transcriber
 
 import (
-	"context"
-
 	"audio2note/internal/registry"
+	"context"
 )
 
 // Input is everything a transcriber needs to produce a transcript.
@@ -24,7 +23,6 @@ type Input struct {
 
 type Transcriber interface {
 	Name() string
-	DefaultTranscriptFile() string
 	Transcribe(ctx context.Context, in Input) error
 }
 
@@ -59,6 +57,6 @@ type SpeakerLabelEditor interface {
 
 var reg = registry.New[Transcriber]()
 
-func Register(t Transcriber)              { reg.Register(t) }
+func Register(t Transcriber)               { reg.Register(t) }
 func Get(name string) (Transcriber, error) { return reg.Get(name) }
 func Names() []string                      { return reg.Names() }

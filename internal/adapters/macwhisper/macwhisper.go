@@ -7,18 +7,16 @@
 package macwhisper
 
 import (
+	"audio2note/internal/transcriber"
 	"context"
 	"fmt"
 	"os"
 	"os/exec"
-
-	"audio2note/internal/transcriber"
 )
 
 type MacWhisper struct{}
 
-func (MacWhisper) Name() string                  { return "macwhisper" }
-func (MacWhisper) DefaultTranscriptFile() string { return "Transcript.txt" }
+func (MacWhisper) Name() string { return "macwhisper" }
 
 func (MacWhisper) Transcribe(ctx context.Context, in transcriber.Input) error {
 	f, err := os.Create(in.OutputFile)

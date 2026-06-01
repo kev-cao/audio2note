@@ -26,6 +26,12 @@ import (
 
 const obsidianVaultEnv = "OBSIDIAN_VAULT_PATH"
 
+// defaultTranscriptPath is where the pipeline writes the transcript when
+// --transcript-file isn't given. Stable across runs (each invocation
+// overwrites the same file) and lives in the OS temp dir so it doesn't
+// clutter cwd; the OS reaps it eventually, so there's no explicit cleanup.
+var defaultTranscriptPath = filepath.Join(os.TempDir(), "audio2note-transcript.json")
+
 type flags struct {
 	transcriber           string
 	summarizer            string
@@ -69,7 +75,7 @@ func newRootCmd() *cobra.Command {
 func addPipelineFlags(cmd *cobra.Command, f *flags) {
 	addRegistryFlag(cmd, &f.transcriber, "transcriber", "macwhisper", "Transcriber adapter to use", transcriber.Names)
 	addRegistryFlag(cmd, &f.summarizer, "summarizer", "claudecode", "Summarizer adapter to use", summarizer.Names)
-	cmd.Flags().StringVar(&f.transcriptFile, "transcript-file", "", "Path to the transcript file (defaults to the transcriber's default filename in cwd)")
+	cmd.Flags().StringVar(&f.transcriptFile, "transcript-file", "", "Path to the transcript file (defaults to "+defaultTranscriptPath+")")
 	cmd.Flags().BoolVar(&f.obsidian, "obsidian", false, "Write notes to the Obsidian vault at $"+obsidianVaultEnv)
 	cmd.Flags().StringVar(&f.obsidianVault, "obsidian-vault", "", "Explicit Obsidian vault path (implies --obsidian)")
 	cmd.Flags().StringVar(&f.outputFile, "output-file", "", "If set, instructs the summarizer to use this exact file name; otherwise the summarizer chooses")
@@ -145,16 +151,12 @@ func resolveAudioFiles(ctx context.Context, audioArgs []string, f flags) (string
 }
 
 // resolveTranscriptPath picks the transcript file path: --transcript-file if
-// set, otherwise the chosen transcriber's default filename. Always returned as
-// an absolute path.
+// set, otherwise the shared defaultTranscriptPath. Always returned as an
+// absolute path.
 func resolveTranscriptPath(f flags) (string, error) {
-	tr, err := transcriber.Get(f.transcriber)
-	if err != nil {
-		return "", fmt.Errorf("transcriber: %w", err)
-	}
 	p := f.transcriptFile
 	if p == "" {
-		p = tr.DefaultTranscriptFile()
+		p = defaultTranscriptPath
 	}
 	abs, err := filepath.Abs(p)
 	if err != nil {

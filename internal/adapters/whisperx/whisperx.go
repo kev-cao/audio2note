@@ -12,6 +12,7 @@
 package whisperx
 
 import (
+	"audio2note/internal/transcriber"
 	"context"
 	"errors"
 	"fmt"
@@ -19,14 +20,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-
-	"audio2note/internal/transcriber"
 )
 
 type WhisperX struct{}
 
-func (WhisperX) Name() string                  { return "whisperx" }
-func (WhisperX) DefaultTranscriptFile() string { return "Transcript.json" }
+func (WhisperX) Name() string { return "whisperx" }
 
 func (WhisperX) Transcribe(ctx context.Context, in transcriber.Input) error {
 	// --diarize fires only when defaults are applied. Pre-check HF auth so
