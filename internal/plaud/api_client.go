@@ -1,6 +1,7 @@
 package plaud
 
 import (
+	"bytes"
 	"compress/gzip"
 	"context"
 	"encoding/json"
@@ -84,7 +85,9 @@ func (c *apiClient) ListFiles(ctx context.Context) ([]File, error) {
 	return out, nil
 }
 
-func (c *apiClient) DownloadRecording(ctx context.Context, id ID, outputFilePath string) (string, error) {
+func (c *apiClient) DownloadRecording(
+	ctx context.Context, id ID, outputFilePath string,
+) (string, error) {
 	var resp struct {
 		TempURL string `json:"temp_url"`
 	}
@@ -100,7 +103,9 @@ func (c *apiClient) DownloadRecording(ctx context.Context, id ID, outputFilePath
 	return filepath.Abs(outputFilePath)
 }
 
-func (c *apiClient) DownloadTranscript(ctx context.Context, id ID, outputFilePath string) (string, error) {
+func (c *apiClient) DownloadTranscript(
+	ctx context.Context, id ID, outputFilePath string,
+) (string, error) {
 	fd, err := c.getFileDetails(ctx, id)
 	if err != nil {
 		return "", err
@@ -112,6 +117,22 @@ func (c *apiClient) DownloadTranscript(ctx context.Context, id ID, outputFilePat
 		return "", err
 	}
 	return filepath.Abs(outputFilePath)
+}
+
+func (c *apiClient) RenameFile(ctx context.Context, id ID, newName string) error {
+	body := map[string]any{
+		"filename": newName,
+		// hasTitleEdit tells Plaud the rename is user-initiated; without it
+		// the API ignores the filename change. The shape is what the web
+		// client sends — keep it verbatim.
+		"extra_data": map[string]any{
+			"actionData": map[string]any{
+				"hasTitleEdit": true,
+			},
+		},
+	}
+	var ignore struct{}
+	return c.doAPIWithBody(ctx, "PATCH", "/file/"+string(id), body, &ignore)
 }
 
 func (c *apiClient) GetHighlights(ctx context.Context, id ID) ([]Highlight, error) {
@@ -177,31 +198,50 @@ func (c *apiClient) getFileDetails(ctx context.Context, id ID) (fileDetails, err
 // response into dst. Errors on non-2xx HTTP or non-zero `status` in the
 // response envelope.
 func (c *apiClient) doAPI(ctx context.Context, method, path string, dst any) error {
-	req, err := http.NewRequestWithContext(ctx, method, c.host+path, nil)
+	return c.doAPIWithBody(ctx, method, path, nil, dst)
+}
+
+// doAPIWithBody is doAPI plus a JSON request body. nil body skips the body
+// (GETs use this).
+func (c *apiClient) doAPIWithBody(
+	ctx context.Context, method, path string, body any, dst any,
+) error {
+	var reqBody io.Reader
+	if body != nil {
+		buf, err := json.Marshal(body)
+		if err != nil {
+			return fmt.Errorf("plaud %s %s: marshal body: %w", method, path, err)
+		}
+		reqBody = bytes.NewReader(buf)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, c.host+path, reqBody)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Authorization", "bearer "+c.token)
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
 	if resp.StatusCode/100 != 2 {
-		return fmt.Errorf("plaud %s %s: http %d: %s", method, path, resp.StatusCode, string(body))
+		return fmt.Errorf("plaud %s %s: http %d: %s", method, path, resp.StatusCode, string(respBody))
 	}
 	var envelope struct {
 		Status int    `json:"status"`
 		Msg    string `json:"msg"`
 	}
-	if err := json.Unmarshal(body, &envelope); err == nil && envelope.Status != 0 {
+	if err := json.Unmarshal(respBody, &envelope); err == nil && envelope.Status != 0 {
 		return fmt.Errorf("plaud %s %s: status=%d msg=%q", method, path, envelope.Status, envelope.Msg)
 	}
-	return json.Unmarshal(body, dst)
+	return json.Unmarshal(respBody, dst)
 }
 
 // fetchURL GETs a presigned URL (no auth header) and returns the full body.

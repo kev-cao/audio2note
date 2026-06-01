@@ -12,11 +12,17 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 )
+
+// defaultPlaudNameRegex matches Plaud's default `YYYY-MM-DD HH:MM:SS`
+// filenames. When the file's name doesn't match, the user already renamed it
+// and we leave it alone (see renamePlaudFiles).
+var defaultPlaudNameRegex = regexp.MustCompile(`^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$`)
 
 const plaudSetupInstructions = `To get your Plaud bearer token:
   1. Open https://web.plaud.ai in your browser and sign in.
@@ -54,6 +60,9 @@ func newPlaudRunCmd() *cobra.Command {
 		},
 	}
 	addPipelineFlags(cmd, &f)
+	// --no-rename is Plaud-specific so it lives on this subcommand only
+	// (not in addPipelineFlags, which is shared with the local-file root).
+	cmd.Flags().BoolVar(&f.noRename, "no-rename", false, "Disable auto-renaming the Plaud recording to a summarizer-produced title after a successful run")
 	return cmd
 }
 
@@ -80,7 +89,44 @@ func runPlaud(ctx context.Context, client plaud.Client, f flags, vaultFlagSet bo
 	if err != nil {
 		return err
 	}
-	return pipeline.Run(ctx, opts)
+	result, err := pipeline.Run(ctx, opts)
+	if err != nil {
+		return err
+	}
+	if !f.noRename && !f.transcribeOnly {
+		renamePlaudFiles(ctx, client, selected, result.Title)
+	}
+	return nil
+}
+
+// renamePlaudFiles updates the filename on each selected Plaud recording to a
+// summarizer-produced title. Best-effort: an empty title, a file that's
+// already been manually renamed, or a per-file API error each surface as a
+// warning line — they never abort the command. Multi-file selections get
+// `(part N/M)` suffixes so the stitched recording is still discoverable as a
+// group.
+func renamePlaudFiles(
+	ctx context.Context, client plaud.Client, selected []plaud.File, title string,
+) {
+	if title == "" {
+		fmt.Println("→ summarizer did not produce a title, skipping Plaud rename")
+		return
+	}
+	for i, f := range selected {
+		if !defaultPlaudNameRegex.MatchString(f.Filename) {
+			fmt.Printf("→ Plaud file %q already renamed, skipping\n", f.Filename)
+			continue
+		}
+		newName := title
+		if len(selected) > 1 {
+			newName = fmt.Sprintf("%s (part %d/%d)", title, i+1, len(selected))
+		}
+		if err := client.RenameFile(ctx, f.ID, newName); err != nil {
+			fmt.Printf("→ couldn't rename Plaud file %s: %v\n", f.Filename, err)
+			continue
+		}
+		fmt.Printf("→ renamed Plaud file %s → %q\n", f.Filename, newName)
+	}
 }
 
 // runPlaudAfterPick downloads what's needed based on the flag combination,
@@ -123,6 +169,10 @@ func runPlaudAfterPick(
 		return pipeline.Options{}, err
 	}
 	opts.Highlights = highlights
+	// Only ask the summarizer for a title when we're actually going to
+	// use it for rename; otherwise we'd spend tokens and add a flag-handshake
+	// step for no reason.
+	opts.RequestTitle = !f.noRename && !f.transcribeOnly
 	return opts, nil
 }
 

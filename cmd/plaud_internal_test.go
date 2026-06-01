@@ -20,6 +20,13 @@ type richFakePlaud struct {
 	getHighlightsCalls      int
 	highlights              []plaud.Highlight
 	highlightsErr           error
+	renameCalls             []renameCall
+	renameErr               error
+}
+
+type renameCall struct {
+	id      plaud.ID
+	newName string
 }
 
 func (r *richFakePlaud) Validate(context.Context) error                  { return nil }
@@ -48,6 +55,11 @@ func (r *richFakePlaud) DownloadTranscript(
 func (r *richFakePlaud) GetHighlights(context.Context, plaud.ID) ([]plaud.Highlight, error) {
 	r.getHighlightsCalls++
 	return r.highlights, r.highlightsErr
+}
+
+func (r *richFakePlaud) RenameFile(_ context.Context, id plaud.ID, newName string) error {
+	r.renameCalls = append(r.renameCalls, renameCall{id: id, newName: newName})
+	return r.renameErr
 }
 
 func sampleFile() plaud.File {

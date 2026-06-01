@@ -6,14 +6,13 @@
 package pipeline
 
 import (
+	"audio2note/internal/speakeredit"
+	"audio2note/internal/summarizer"
+	"audio2note/internal/transcriber"
 	"context"
 	"fmt"
 	"os"
 	"time"
-
-	"audio2note/internal/speakeredit"
-	"audio2note/internal/summarizer"
-	"audio2note/internal/transcriber"
 )
 
 type Options struct {
@@ -32,9 +31,21 @@ type Options struct {
 	ExtraPrompt           string
 	EditSpeakerLabels     bool
 	Highlights            []time.Duration
+	// RequestTitle asks the summarizer to produce a meeting title alongside
+	// its notes; the title shows up on the returned Result. Callers that
+	// don't want a title (root command) leave this false.
+	RequestTitle bool
 }
 
-func Run(ctx context.Context, opts Options) error {
+// Result reports values produced during the pipeline that callers may need
+// after the run (e.g. cmd/plaud uses Title to rename the recording).
+type Result struct {
+	// Title is the summarizer-produced meeting title when Options.RequestTitle
+	// was true and the adapter successfully captured one. Empty otherwise.
+	Title string
+}
+
+func Run(ctx context.Context, opts Options) (Result, error) {
 	if !opts.SkipTranscribe {
 		fmt.Printf("→ transcribing %s with %s → %s\n", opts.AudioFile, opts.Transcriber.Name(), opts.TranscriptFile)
 		in := transcriber.Input{
@@ -44,19 +55,20 @@ func Run(ctx context.Context, opts Options) error {
 			NoDefaults: opts.TranscriberNoDefaults,
 		}
 		if err := opts.Transcriber.Transcribe(ctx, in); err != nil {
-			return fmt.Errorf("transcribe: %w", err)
+			return Result{}, fmt.Errorf("transcribe: %w", err)
 		}
 	}
 
 	if opts.EditSpeakerLabels {
 		if err := runSpeakerEdit(opts); err != nil {
-			return err
+			return Result{}, err
 		}
 	}
 
+	var result Result
 	if !opts.SkipSummarize {
 		if _, err := os.Stat(opts.TranscriptFile); err != nil {
-			return fmt.Errorf("transcript file: %w", err)
+			return Result{}, fmt.Errorf("transcript file: %w", err)
 		}
 		fmt.Printf("→ summarizing %s with %s\n", opts.TranscriptFile, opts.Summarizer.Name())
 		in := summarizer.Input{
@@ -67,12 +79,15 @@ func Run(ctx context.Context, opts Options) error {
 			NoDefaults:     opts.SummarizerNoDefaults,
 			ExtraPrompt:    opts.ExtraPrompt,
 			Highlights:     opts.Highlights,
+			RequestTitle:   opts.RequestTitle,
 		}
-		if err := opts.Summarizer.Summarize(ctx, in); err != nil {
-			return fmt.Errorf("summarize: %w", err)
+		sumRes, err := opts.Summarizer.Summarize(ctx, in)
+		if err != nil {
+			return Result{}, fmt.Errorf("summarize: %w", err)
 		}
+		result.Title = sumRes.Title
 	}
-	return nil
+	return result, nil
 }
 
 func runSpeakerEdit(opts Options) error {

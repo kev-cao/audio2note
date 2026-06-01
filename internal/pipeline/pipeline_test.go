@@ -1,16 +1,15 @@
 package pipeline_test
 
 import (
+	"audio2note/internal/pipeline"
+	"audio2note/internal/summarizer"
+	"audio2note/internal/transcriber"
 	"context"
 	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"audio2note/internal/pipeline"
-	"audio2note/internal/summarizer"
-	"audio2note/internal/transcriber"
 )
 
 // --- fakes ---
@@ -35,13 +34,16 @@ type fakeSummarizer struct {
 	summarizeCalls int
 	lastInput      summarizer.Input
 	summarizeErr   error
+	titleToReturn  string
 }
 
 func (f *fakeSummarizer) Name() string { return f.name }
-func (f *fakeSummarizer) Summarize(_ context.Context, in summarizer.Input) error {
+func (f *fakeSummarizer) Summarize(
+	_ context.Context, in summarizer.Input,
+) (summarizer.Result, error) {
 	f.summarizeCalls++
 	f.lastInput = in
-	return f.summarizeErr
+	return summarizer.Result{Title: f.titleToReturn}, f.summarizeErr
 }
 
 // fakeSpeakerEditor satisfies both Transcriber and SpeakerLabelEditor.
@@ -80,7 +82,7 @@ func TestRun_HappyPath(t *testing.T) {
 	ft := &fakeTranscriber{name: "ft"}
 	fs := &fakeSummarizer{name: "fs"}
 
-	err := pipeline.Run(context.Background(), pipeline.Options{
+	_, err := pipeline.Run(context.Background(), pipeline.Options{
 		AudioFile:      "/audio.mp3",
 		Transcriber:    ft,
 		Summarizer:     fs,
@@ -106,7 +108,7 @@ func TestRun_SkipTranscribe(t *testing.T) {
 	ft := &fakeTranscriber{}
 	fs := &fakeSummarizer{}
 
-	err := pipeline.Run(context.Background(), pipeline.Options{
+	_, err := pipeline.Run(context.Background(), pipeline.Options{
 		Transcriber:    ft,
 		Summarizer:     fs,
 		TranscriptFile: transcript,
@@ -128,7 +130,7 @@ func TestRun_SkipSummarize(t *testing.T) {
 	ft := &fakeTranscriber{}
 	fs := &fakeSummarizer{}
 
-	err := pipeline.Run(context.Background(), pipeline.Options{
+	_, err := pipeline.Run(context.Background(), pipeline.Options{
 		AudioFile:     "/audio.mp3",
 		Transcriber:   ft,
 		Summarizer:    fs,
@@ -150,7 +152,7 @@ func TestRun_TranscribeErrorPropagates(t *testing.T) {
 	ft := &fakeTranscriber{transcribeErr: errors.New("boom")}
 	fs := &fakeSummarizer{}
 
-	err := pipeline.Run(context.Background(), pipeline.Options{
+	_, err := pipeline.Run(context.Background(), pipeline.Options{
 		AudioFile:   "/audio.mp3",
 		Transcriber: ft,
 		Summarizer:  fs,
@@ -168,7 +170,7 @@ func TestRun_SummarizeErrorPropagates(t *testing.T) {
 	ft := &fakeTranscriber{}
 	fs := &fakeSummarizer{summarizeErr: errors.New("kaboom")}
 
-	err := pipeline.Run(context.Background(), pipeline.Options{
+	_, err := pipeline.Run(context.Background(), pipeline.Options{
 		AudioFile:      "/audio.mp3",
 		Transcriber:    ft,
 		Summarizer:     fs,
@@ -183,7 +185,7 @@ func TestRun_SummarizeMissingTranscriptErrors(t *testing.T) {
 	ft := &fakeTranscriber{}
 	fs := &fakeSummarizer{}
 
-	err := pipeline.Run(context.Background(), pipeline.Options{
+	_, err := pipeline.Run(context.Background(), pipeline.Options{
 		Transcriber:    ft,
 		Summarizer:     fs,
 		TranscriptFile: "/definitely/does/not/exist.txt",
@@ -203,7 +205,7 @@ func TestRun_EditLabels_UnsupportedTranscriber(t *testing.T) {
 	transcript := writeTranscriptFile(t, "hi")
 	ft := &fakeTranscriber{name: "plainfake"}
 
-	err := pipeline.Run(context.Background(), pipeline.Options{
+	_, err := pipeline.Run(context.Background(), pipeline.Options{
 		Transcriber:       ft,
 		Summarizer:        &fakeSummarizer{},
 		TranscriptFile:    transcript,
@@ -222,7 +224,7 @@ func TestRun_EditLabels_UnsupportedTranscriber(t *testing.T) {
 func TestRun_EditLabels_MissingFile(t *testing.T) {
 	fse := &fakeSpeakerEditor{fakeTranscriber: &fakeTranscriber{name: "se"}}
 
-	err := pipeline.Run(context.Background(), pipeline.Options{
+	_, err := pipeline.Run(context.Background(), pipeline.Options{
 		Transcriber:       fse,
 		Summarizer:        &fakeSummarizer{},
 		TranscriptFile:    "/nope/missing.json",
@@ -242,7 +244,7 @@ func TestRun_EditLabels_NoLabels(t *testing.T) {
 		hasLabels:       false,
 	}
 
-	err := pipeline.Run(context.Background(), pipeline.Options{
+	_, err := pipeline.Run(context.Background(), pipeline.Options{
 		Transcriber:       fse,
 		Summarizer:        &fakeSummarizer{},
 		TranscriptFile:    transcript,
@@ -262,7 +264,7 @@ func TestRun_EditLabels_HasLabelsError(t *testing.T) {
 		hasLabelsErr:    errors.New("read failure"),
 	}
 
-	err := pipeline.Run(context.Background(), pipeline.Options{
+	_, err := pipeline.Run(context.Background(), pipeline.Options{
 		Transcriber:       fse,
 		Summarizer:        &fakeSummarizer{},
 		TranscriptFile:    transcript,
@@ -283,7 +285,7 @@ func TestRun_EditLabels_LoadError(t *testing.T) {
 		loadErr:         errors.New("parse failure"),
 	}
 
-	err := pipeline.Run(context.Background(), pipeline.Options{
+	_, err := pipeline.Run(context.Background(), pipeline.Options{
 		Transcriber:       fse,
 		Summarizer:        &fakeSummarizer{},
 		TranscriptFile:    transcript,
@@ -304,7 +306,7 @@ func TestRun_EditLabels_EmptySpeakerListIsNoop(t *testing.T) {
 		// loadErr nil + LoadSpeakers returns nil slice → pipeline should skip the TUI cleanly.
 	}
 
-	err := pipeline.Run(context.Background(), pipeline.Options{
+	_, err := pipeline.Run(context.Background(), pipeline.Options{
 		Transcriber:       fse,
 		Summarizer:        &fakeSummarizer{},
 		TranscriptFile:    transcript,
@@ -316,4 +318,3 @@ func TestRun_EditLabels_EmptySpeakerListIsNoop(t *testing.T) {
 		t.Errorf("expected no error when no speakers found, got %v", err)
 	}
 }
-

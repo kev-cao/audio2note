@@ -41,6 +41,9 @@ type flags struct {
 	summarizerNoDefaults  bool
 	prompt                string
 	editSpeakerLabels     bool
+	// noRename is set only by the `plaud run` subcommand; the root command
+	// never reads it. Lives here so addPipelineFlags can share the struct.
+	noRename bool
 }
 
 func newRootCmd() *cobra.Command {
@@ -95,7 +98,10 @@ func run(ctx context.Context, audioArgs []string, f flags, vaultFlagSet bool) er
 	if err != nil {
 		return err
 	}
-	return pipeline.Run(ctx, opts)
+	// The local-file flow never renames anything on Plaud, so we ignore the
+	// returned Result (RequestTitle stays false here).
+	_, err = pipeline.Run(ctx, opts)
+	return err
 }
 
 // resolveAudioFiles reads the positional audio file arguments. Returns empty

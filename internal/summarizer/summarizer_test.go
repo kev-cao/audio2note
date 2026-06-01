@@ -1,26 +1,24 @@
-package claudecode
+package summarizer
 
 import (
 	"strings"
 	"testing"
 	"time"
-
-	"audio2note/internal/summarizer"
 )
 
-func TestBuildPrompt_Minimal(t *testing.T) {
-	got := buildPrompt(summarizer.Input{
+func TestBuildBasePrompt_Minimal(t *testing.T) {
+	got := BuildBasePrompt(Input{
 		TranscriptFile: "/abs/transcript.txt",
 		OutputFile:     "notes.md",
 	})
 	want := "Read through the meeting transcript written at /abs/transcript.txt and make notes from this transcript. The output file for this transcript should be named notes.md."
 	if got != want {
-		t.Errorf("buildPrompt minimal mismatch\n got: %q\nwant: %q", got, want)
+		t.Errorf("BuildBasePrompt minimal mismatch\n got: %q\nwant: %q", got, want)
 	}
 }
 
-func TestBuildPrompt_WithVault(t *testing.T) {
-	got := buildPrompt(summarizer.Input{
+func TestBuildBasePrompt_WithVault(t *testing.T) {
+	got := BuildBasePrompt(Input{
 		TranscriptFile: "/abs/transcript.txt",
 		OutputFile:     "notes.md",
 		ObsidianVault:  "/path/to/vault",
@@ -30,8 +28,8 @@ func TestBuildPrompt_WithVault(t *testing.T) {
 	}
 }
 
-func TestBuildPrompt_WithExtraPrompt(t *testing.T) {
-	got := buildPrompt(summarizer.Input{
+func TestBuildBasePrompt_WithExtraPrompt(t *testing.T) {
+	got := BuildBasePrompt(Input{
 		TranscriptFile: "/abs/transcript.txt",
 		OutputFile:     "notes.md",
 		ExtraPrompt:    "Use bullet points.",
@@ -41,8 +39,8 @@ func TestBuildPrompt_WithExtraPrompt(t *testing.T) {
 	}
 }
 
-func TestBuildPrompt_VaultAndExtraOrdering(t *testing.T) {
-	got := buildPrompt(summarizer.Input{
+func TestBuildBasePrompt_VaultAndExtraOrdering(t *testing.T) {
+	got := BuildBasePrompt(Input{
 		TranscriptFile: "/abs/transcript.txt",
 		OutputFile:     "notes.md",
 		ObsidianVault:  "/path/to/vault",
@@ -61,8 +59,8 @@ func TestBuildPrompt_VaultAndExtraOrdering(t *testing.T) {
 	}
 }
 
-func TestBuildPrompt_OmitsEmptyOptionals(t *testing.T) {
-	got := buildPrompt(summarizer.Input{
+func TestBuildBasePrompt_OmitsEmptyOptionals(t *testing.T) {
+	got := BuildBasePrompt(Input{
 		TranscriptFile: "/abs/transcript.txt",
 		OutputFile:     "notes.md",
 	})
@@ -70,13 +68,12 @@ func TestBuildPrompt_OmitsEmptyOptionals(t *testing.T) {
 		t.Error("vault sentence should be omitted when ObsidianVault is empty")
 	}
 	if strings.Contains(got, "\n\n") {
-		// The first paragraph alone shouldn't contain a double newline either.
 		t.Errorf("unexpected double newline in minimal prompt: %q", got)
 	}
 }
 
-func TestBuildPrompt_OmitsOutputFileWhenEmpty(t *testing.T) {
-	got := buildPrompt(summarizer.Input{
+func TestBuildBasePrompt_OmitsOutputFileWhenEmpty(t *testing.T) {
+	got := BuildBasePrompt(Input{
 		TranscriptFile: "/abs/transcript.txt",
 	})
 	if strings.Contains(got, "output file") {
@@ -88,8 +85,8 @@ func TestBuildPrompt_OmitsOutputFileWhenEmpty(t *testing.T) {
 	}
 }
 
-func TestBuildPrompt_OmitsOutputFileButKeepsVault(t *testing.T) {
-	got := buildPrompt(summarizer.Input{
+func TestBuildBasePrompt_OmitsOutputFileButKeepsVault(t *testing.T) {
+	got := BuildBasePrompt(Input{
 		TranscriptFile: "/abs/transcript.txt",
 		ObsidianVault:  "/path/to/vault",
 	})
@@ -101,49 +98,28 @@ func TestBuildPrompt_OmitsOutputFileButKeepsVault(t *testing.T) {
 	}
 }
 
-func TestFormatHighlight(t *testing.T) {
-	cases := []struct {
-		in   time.Duration
-		want string
-	}{
-		{0, "00:00:00"},
-		{5*time.Minute + 23*time.Second, "00:05:23"},
-		{1*time.Hour + 2*time.Minute + 3*time.Second, "01:02:03"},
-		{2*time.Hour + 30*time.Minute, "02:30:00"},
-		// Rounding to whole seconds.
-		{(961640) * time.Millisecond, "00:16:02"},
-	}
-	for _, tc := range cases {
-		if got := formatHighlight(tc.in); got != tc.want {
-			t.Errorf("formatHighlight(%v) = %q, want %q", tc.in, got, tc.want)
-		}
-	}
-}
-
-func TestBuildPrompt_WithHighlights(t *testing.T) {
-	got := buildPrompt(summarizer.Input{
+func TestBuildBasePrompt_WithHighlights(t *testing.T) {
+	got := BuildBasePrompt(Input{
 		TranscriptFile: "/abs/transcript.txt",
 		Highlights: []time.Duration{
 			5*time.Minute + 23*time.Second,
 			27 * time.Minute,
 		},
 	})
-	if !strings.Contains(got, "user marked the following moments") {
-		t.Errorf("highlights intro missing\nprompt: %q", got)
-	}
-	if !strings.Contains(got, "- 00:05:23") {
-		t.Errorf("first timestamp missing\nprompt: %q", got)
-	}
-	if !strings.Contains(got, "- 00:27:00") {
-		t.Errorf("second timestamp missing\nprompt: %q", got)
-	}
-	if !strings.Contains(got, "Pay special attention") {
-		t.Errorf("guidance sentence missing\nprompt: %q", got)
+	for _, frag := range []string{
+		"user marked the following moments",
+		"- 00:05:23",
+		"- 00:27:00",
+		"Pay special attention",
+	} {
+		if !strings.Contains(got, frag) {
+			t.Errorf("missing fragment %q in prompt:\n%s", frag, got)
+		}
 	}
 }
 
-func TestBuildPrompt_OmitsHighlightsWhenEmpty(t *testing.T) {
-	got := buildPrompt(summarizer.Input{
+func TestBuildBasePrompt_OmitsHighlightsWhenEmpty(t *testing.T) {
+	got := BuildBasePrompt(Input{
 		TranscriptFile: "/abs/transcript.txt",
 	})
 	if strings.Contains(got, "highlights") || strings.Contains(got, "Highlights") {
@@ -151,8 +127,8 @@ func TestBuildPrompt_OmitsHighlightsWhenEmpty(t *testing.T) {
 	}
 }
 
-func TestBuildPrompt_HighlightsBetweenVaultAndExtra(t *testing.T) {
-	got := buildPrompt(summarizer.Input{
+func TestBuildBasePrompt_HighlightsBetweenVaultAndExtra(t *testing.T) {
+	got := BuildBasePrompt(Input{
 		TranscriptFile: "/abs/transcript.txt",
 		ObsidianVault:  "/path/to/vault",
 		Highlights:     []time.Duration{1 * time.Minute},
@@ -166,5 +142,58 @@ func TestBuildPrompt_HighlightsBetweenVaultAndExtra(t *testing.T) {
 	}
 	if !(vaultIdx < highlightIdx && highlightIdx < extraIdx) {
 		t.Errorf("ordering should be vault → highlights → extra; got vault=%d highlight=%d extra=%d", vaultIdx, highlightIdx, extraIdx)
+	}
+}
+
+func TestBuildBasePrompt_RequestTitleAddsGuidance(t *testing.T) {
+	got := BuildBasePrompt(Input{
+		TranscriptFile: "/abs/transcript.txt",
+		RequestTitle:   true,
+	})
+	if !strings.Contains(got, "short, descriptive title") {
+		t.Errorf("title guidance missing when RequestTitle=true; prompt: %q", got)
+	}
+}
+
+func TestBuildBasePrompt_NoTitleGuidanceByDefault(t *testing.T) {
+	got := BuildBasePrompt(Input{
+		TranscriptFile: "/abs/transcript.txt",
+	})
+	if strings.Contains(got, "title") {
+		t.Errorf("title guidance should be omitted when RequestTitle=false; prompt: %q", got)
+	}
+}
+
+func TestBuildBasePrompt_TitleBeforeExtraPrompt(t *testing.T) {
+	got := BuildBasePrompt(Input{
+		TranscriptFile: "/abs/transcript.txt",
+		RequestTitle:   true,
+		ExtraPrompt:    "Use bullet points.",
+	})
+	titleIdx := strings.Index(got, "short, descriptive title")
+	extraIdx := strings.Index(got, "Use bullet points.")
+	if titleIdx < 0 || extraIdx < 0 {
+		t.Fatalf("missing fragments\nprompt: %q", got)
+	}
+	if titleIdx > extraIdx {
+		t.Error("title guidance should appear before the user's extra prompt")
+	}
+}
+
+func TestFormatHighlight(t *testing.T) {
+	cases := []struct {
+		in   time.Duration
+		want string
+	}{
+		{0, "00:00:00"},
+		{5*time.Minute + 23*time.Second, "00:05:23"},
+		{1*time.Hour + 2*time.Minute + 3*time.Second, "01:02:03"},
+		{2*time.Hour + 30*time.Minute, "02:30:00"},
+		{(961640) * time.Millisecond, "00:16:02"},
+	}
+	for _, tc := range cases {
+		if got := FormatHighlight(tc.in); got != tc.want {
+			t.Errorf("FormatHighlight(%v) = %q, want %q", tc.in, got, tc.want)
+		}
 	}
 }

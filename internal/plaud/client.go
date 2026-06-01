@@ -44,4 +44,9 @@ type Client interface {
 	// GetHighlights returns the user-marked highlight timestamps for the
 	// recording.
 	GetHighlights(ctx context.Context, id ID) ([]Highlight, error)
+
+	// RenameFile updates the filename ("title") of the recording on Plaud.
+	// Used by `audio2note plaud run` after summarization to replace the
+	// default `YYYY-MM-DD HH:MM:SS` timestamp with a meaningful title.
+	RenameFile(ctx context.Context, id ID, newName string) error
 }

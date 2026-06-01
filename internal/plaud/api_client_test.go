@@ -332,6 +332,62 @@ func TestValidate_NonZeroStatus(t *testing.T) {
 	}
 }
 
+func TestRenameFile_PATCHWithExpectedBody(t *testing.T) {
+	var gotMethod, gotPath, gotAuth, gotContentType string
+	var gotBody map[string]any
+	h := http.NewServeMux()
+	h.HandleFunc("/file/abc123", func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		gotAuth = r.Header.Get("Authorization")
+		gotContentType = r.Header.Get("Content-Type")
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		_, _ = w.Write([]byte(`{"status":0,"msg":"ok"}`))
+	})
+	ts := httptest.NewServer(h)
+	defer ts.Close()
+
+	c := newAPIClient("test-token", ts.URL)
+	if err := c.RenameFile(context.Background(), "abc123", "Quarterly review"); err != nil {
+		t.Fatal(err)
+	}
+	if gotMethod != "PATCH" {
+		t.Errorf("method = %q, want PATCH", gotMethod)
+	}
+	if gotPath != "/file/abc123" {
+		t.Errorf("path = %q, want /file/abc123", gotPath)
+	}
+	if gotAuth != "bearer test-token" {
+		t.Errorf("auth header = %q", gotAuth)
+	}
+	if gotContentType != "application/json" {
+		t.Errorf("content-type = %q, want application/json", gotContentType)
+	}
+	if gotBody["filename"] != "Quarterly review" {
+		t.Errorf("body.filename = %v, want %q", gotBody["filename"], "Quarterly review")
+	}
+	extra, _ := gotBody["extra_data"].(map[string]any)
+	action, _ := extra["actionData"].(map[string]any)
+	if action["hasTitleEdit"] != true {
+		t.Errorf("body.extra_data.actionData.hasTitleEdit = %v, want true (full body: %+v)", action["hasTitleEdit"], gotBody)
+	}
+}
+
+func TestRenameFile_PropagatesAPIError(t *testing.T) {
+	h := http.NewServeMux()
+	h.HandleFunc("/file/abc", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"status":1,"msg":"rename denied"}`))
+	})
+	ts := httptest.NewServer(h)
+	defer ts.Close()
+
+	c := newAPIClient("t", ts.URL)
+	err := c.RenameFile(context.Background(), "abc", "anything")
+	if err == nil || !strings.Contains(err.Error(), "rename denied") {
+		t.Errorf("want 'rename denied' error, got %v", err)
+	}
+}
+
 func TestNewClient_NoToken(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	_, err := NewClient()
