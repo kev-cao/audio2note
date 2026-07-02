@@ -37,6 +37,7 @@ func (ClaudeCode) Summarize(ctx context.Context, in summarizer.Input) (summarize
 		if in.ObsidianVault != "" {
 			args = append(args, "--add-dir", in.ObsidianVault)
 		}
+		args = append(args, "--allowed-tools", "Bash")
 	}
 	if in.RequestTitle {
 		// --output-format json gives a single result blob at the end with
