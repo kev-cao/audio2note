@@ -1,13 +1,12 @@
 package macwhisper
 
 import (
+	"audio2note/internal/transcriber"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"audio2note/internal/transcriber"
 )
 
 // MacWhisper's JSON export is an array of segment records, each with at least
@@ -82,8 +81,12 @@ func (MacWhisper) HasSpeakerLabels(path string) (bool, error) {
 	if len(segs) == 0 {
 		return false, nil
 	}
-	_, ok := segs[0][speakerKey]
-	return ok, nil
+	for _, seg := range segs {
+		if _, ok := seg[speakerKey]; ok {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (MacWhisper) LoadSpeakers(path string) ([]transcriber.Speaker, error) {
