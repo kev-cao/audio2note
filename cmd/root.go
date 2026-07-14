@@ -53,10 +53,21 @@ type flags struct {
 }
 
 func newRootCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "audio2note",
+		Short: "Transcribe one or more audio files and summarize them into meeting notes.",
+	}
+	cmd.AddCommand(newRunCmd(), newPlaudCmd())
+	return cmd
+}
+
+// newRunCmd builds the `run` subcommand: the local audio-file flow. It mirrors
+// `plaud run` so the two sources have the same `<source> run` shape.
+func newRunCmd() *cobra.Command {
 	var f flags
 	cmd := &cobra.Command{
-		Use:           "audio2note <audio-file>...",
-		Short:         "Transcribe one or more audio files and summarize them into meeting notes. Multiple files are stitched in the order given.",
+		Use:           "run <audio-file>...",
+		Short:         "Transcribe one or more local audio files and summarize them into meeting notes. Multiple files are stitched in the order given.",
 		Args:          cobra.ArbitraryArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -64,9 +75,7 @@ func newRootCmd() *cobra.Command {
 			return run(cmd.Context(), args, f, cmd.Flags().Changed("obsidian-vault"))
 		},
 	}
-
 	addPipelineFlags(cmd, &f)
-	cmd.AddCommand(newPlaudCmd())
 	return cmd
 }
 

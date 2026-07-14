@@ -29,7 +29,7 @@ go build -o bin/audio2note .
 ## Usage
 
 ```sh
-audio2note meeting.mp3
+audio2note run meeting.mp3
 ```
 
 That runs the defaults: `mw transcribe meeting.mp3` writes the transcript to `Transcript.txt` in the current directory, then `claude` reads it and writes the meeting notes (claude picks the filename unless you pass `--output-file`).
@@ -39,7 +39,7 @@ That runs the defaults: `mw transcribe meeting.mp3` writes the transcript to `Tr
 Pass several files and they're stitched in the given order with `ffmpeg` (stream copy, no re-encode) before being sent to the transcriber:
 
 ```sh
-audio2note part1.mp3 part2.mp3 part3.mp3
+audio2note run part1.mp3 part2.mp3 part3.mp3
 ```
 
 All inputs must share the same extension/codec. For the `plaud` subcommand, the picker is multi-select (space to toggle, enter to confirm); highlights from every selected recording are merged into a single timeline with offsets matching the stitched audio.
@@ -69,48 +69,48 @@ The hardcoded extras each adapter sets are listed in the adapter source — see 
 
 ```sh
 # Default end-to-end run
-audio2note meeting.mp3
+audio2note run meeting.mp3
 
 # Write notes into the Obsidian vault from $OBSIDIAN_VAULT_PATH
-audio2note --obsidian meeting.mp3
+audio2note run --obsidian meeting.mp3
 
 # Write notes into a specific vault (implies --obsidian)
-audio2note --obsidian-vault ~/vaults/work meeting.mp3
+audio2note run --obsidian-vault ~/vaults/work meeting.mp3
 
 # Use an explicit transcript path and output filename
-audio2note \
+audio2note run \
   --transcript-file /tmp/meeting-transcript.txt \
   --output-file 2026-05-19-standup.md \
   meeting.mp3
 
 # Only transcribe (skip summarization)
-audio2note --transcribe-only meeting.mp3
+audio2note run --transcribe-only meeting.mp3
 
 # Stitch multiple recordings into one before transcribing (requires ffmpeg)
-audio2note part1.mp3 part2.mp3 part3.mp3
+audio2note run part1.mp3 part2.mp3 part3.mp3
 
 # Only summarize an existing transcript (no audio file needed)
-audio2note --summarize-only --transcript-file /tmp/meeting-transcript.txt
+audio2note run --summarize-only --transcript-file /tmp/meeting-transcript.txt
 
 # Forward flags to the underlying tools
-audio2note \
+audio2note run \
   --transcriber-args "--model whisper-large" \
   --summarizer-args "--model claude-sonnet-4-6" \
   meeting.mp3
 
 # Drop the adapter's hardcoded extras and run claude with your own posture
-audio2note \
+audio2note run \
   --summarizer-no-defaults \
   --summarizer-args "--dangerously-skip-permissions" \
   meeting.mp3
 
 # Steer the summary style with extra prompt text
-audio2note \
+audio2note run \
   --prompt "Use bullet points grouped by speaker. Keep the whole summary under 200 words." \
   meeting.mp3
 
 # Rename "Speaker 1"/"Speaker 2"/etc. before summarization (TUI)
-audio2note \
+audio2note run \
   --summarize-only \
   --transcript-file meeting.json \
   --edit-speaker-labels \
