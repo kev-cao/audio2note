@@ -108,6 +108,16 @@ func (r ResembleEnhance) run(ctx context.Context, audioFile, outputDir string, d
 	}
 
 	device := detectDevice(ctx)
+	// Full enhance can't use MPS: its weight-norm op isn't implemented there,
+	// and the CPU fallback re-applies inside the enhancer's per-step
+	// parametrization, thrashing host<->device copies badly enough to exhaust
+	// memory. Fall back to CPU for enhance. Denoise has no such op and runs fine
+	// (and ~2x+ faster than CPU) on MPS.
+	if !denoiseOnly && device == "mps" {
+		fmt.Println("→ full enhance isn't supported on MPS; falling back to CPU (slow) — consider --denoise")
+		device = "cpu"
+	}
+
 	mode := "enhance"
 	args := []string{"--device", device, inDir, outDir}
 	if denoiseOnly {
@@ -134,16 +144,20 @@ func (r ResembleEnhance) run(ctx context.Context, audioFile, outputDir string, d
 	return out, nil
 }
 
-// detectDevice picks the compute device for resemble-enhance. The CLI defaults
-// to "cuda" and doesn't fall back on its own, so we ask Torch (already a
-// resemble-enhance dependency) whether CUDA is available and pin "cpu"
-// otherwise. Apple's "mps" is intentionally not selected: some Torch ops this
-// model needs aren't implemented there, so it tends to error mid-run.
+// detectDevice picks the compute device for resemble-enhance, preferring CUDA,
+// then Apple's MPS, then CPU. The CLI defaults to "cuda" and doesn't fall back
+// on its own, so we ask Torch (already a resemble-enhance dependency) what's
+// available. CUDA is always chosen when present. On Apple Silicon MPS is used
+// for denoise (~2x+ faster than CPU); full enhance can't use MPS and run()
+// downgrades it to CPU.
 func detectDevice(ctx context.Context) string {
 	out, err := exec.CommandContext(ctx, pythonInterpreter(), "-c",
-		"import torch; print(torch.cuda.is_available())").Output()
-	if err == nil && strings.TrimSpace(string(out)) == "True" {
-		return "cuda"
+		"import torch; print('cuda' if torch.cuda.is_available() else ('mps' if torch.backends.mps.is_available() else 'cpu'))").Output()
+	if err == nil {
+		switch d := strings.TrimSpace(string(out)); d {
+		case "cuda", "mps", "cpu":
+			return d
+		}
 	}
 	return "cpu"
 }

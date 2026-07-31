@@ -111,7 +111,7 @@ func addPipelineFlags(cmd *cobra.Command, f *flags) {
 	cmd.Flags().StringVar(&f.prompt, "prompt", "", "Extra text appended to the summarizer's prompt (e.g. \"Use bullet points and keep it under 200 words.\")")
 	cmd.Flags().BoolVar(&f.editSpeakerLabels, "edit-speaker-labels", false, "Open an interactive TUI between transcribe and summarize to rename speaker labels in the transcript")
 	cmd.Flags().BoolVar(&f.denoise, "denoise", false, "Denoise speech (via the `"+defaultDenoiser+"` CLI, denoiser only) before transcription")
-	cmd.Flags().BoolVar(&f.enhanceAudio, "enhance-audio", false, "Enhance speech (via the `"+defaultEnhancer+"` CLI, full denoise + restore — slow) before transcription")
+	cmd.Flags().BoolVar(&f.enhanceAudio, "enhance-audio", false, "(experimental) Full `"+defaultEnhancer+"` speech restoration before transcription. Generative — can alter words and hurt transcription accuracy; slow. Prefer --denoise.")
 
 	cmd.MarkFlagsMutuallyExclusive("transcribe-only", "summarize-only")
 	// At most one of these: --denoise and --enhance-audio both preprocess audio

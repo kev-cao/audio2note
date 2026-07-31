@@ -45,11 +45,13 @@ func TestMissingBinary(t *testing.T) {
 	}
 }
 
-// TestDetectDevice checks device detection returns a valid choice and never
-// picks mps (unsupported ops). It should be "cpu" on a machine without CUDA.
+// TestDetectDevice checks device detection returns one of the supported
+// devices (CUDA preferred, then MPS on Apple Silicon, then CPU).
 func TestDetectDevice(t *testing.T) {
-	got := detectDevice(context.Background())
-	if got != "cpu" && got != "cuda" {
-		t.Errorf("detectDevice() = %q, want cpu or cuda", got)
+	switch got := detectDevice(context.Background()); got {
+	case "cuda", "mps", "cpu":
+		// ok
+	default:
+		t.Errorf("detectDevice() = %q, want cuda, mps, or cpu", got)
 	}
 }
