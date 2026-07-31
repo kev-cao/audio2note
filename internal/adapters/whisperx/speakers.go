@@ -27,9 +27,11 @@ import (
 // alignment, etc.) survive an ApplyRenames rewrite.
 
 const (
-	segmentsKey = "segments"
-	speakerKey  = "speaker"
-	textKey     = "text"
+	segmentsKey     = "segments"
+	wordSegmentsKey = "word_segments"
+	speakerKey      = "speaker"
+	textKey         = "text"
+	languageKey     = "language"
 )
 
 type segment map[string]json.RawMessage
@@ -204,4 +206,138 @@ func atomicWrite(path string, data []byte) error {
 		return fmt.Errorf("rename over %s: %w", path, err)
 	}
 	return nil
+}
+
+// wordSeg is one whisperx word-level token with its speaker assignment.
+// whisperx writes words under the "word" key (not "text").
+type wordSeg struct {
+	Text    string  `json:"word"`
+	Start   float64 `json:"start"`
+	End     float64 `json:"end"`
+	Speaker string  `json:"speaker"`
+}
+
+// mergedSegment is one run of words attributed to a single speaker. It's the
+// segment shape downstream code expects (matches the old --no_align output,
+// minus avg_logprob).
+type mergedSegment struct {
+	Text    string  `json:"text"`
+	Start   float64 `json:"start"`
+	End     float64 `json:"end"`
+	Speaker string  `json:"speaker"`
+}
+
+// transform rewrites whisperx's raw output JSON into the adapter's expected
+// segment format. Without --no_align whisperx performs word-level diarization:
+// each word carries its own speaker label, so attributing whole segments risks
+// misattribution when people talk over each other. transform flattens those
+// word labels and merges consecutive same-speaker words into a single segment.
+// It's a no-op when the file is missing or doesn't contain word-level speaker
+// data (e.g. --no_align output or a non-JSON format in NoDefaults mode).
+func transform(path string) error {
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	d, err := readDocument(path)
+	if err != nil {
+		// Not a JSON document we recognize; leave it untouched.
+		return nil
+	}
+	words, ok := wordsFrom(d)
+	if !ok || !hasSpeaker(words) {
+		return nil
+	}
+
+	merged := mergeWords(words)
+	out := document{}
+	if lang, ok := d[languageKey]; ok {
+		out[languageKey] = lang
+	}
+	raw, err := json.Marshal(merged)
+	if err != nil {
+		return fmt.Errorf("encode segments: %w", err)
+	}
+	out[segmentsKey] = raw
+	data, err := json.MarshalIndent(out, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode document: %w", err)
+	}
+	return atomicWrite(path, data)
+}
+
+// wordsFrom returns whisperx's word-level tokens. They exist whenever forced
+// alignment ran (i.e. --no_align was NOT set); the top-level word_segments list
+// is exactly the flattening of every segment's words.
+func wordsFrom(d document) ([]wordSeg, bool) {
+	raw, ok := d[wordSegmentsKey]
+	if !ok {
+		return nil, false
+	}
+	var words []wordSeg
+	if err := json.Unmarshal(raw, &words); err != nil {
+		return nil, false
+	}
+	return words, true
+}
+
+func hasSpeaker(words []wordSeg) bool {
+	for _, w := range words {
+		if w.Speaker != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// mergeWords groups consecutive words by speaker. A word with no speaker is
+// folded into the surrounding run (the previous speaker, or the first speaker
+// seen for a leading run) so no transcribed text is dropped.
+func mergeWords(words []wordSeg) []mergedSegment {
+	var runs []mergedSegment
+	var cur []wordSeg
+	lastSpeaker := ""
+	for _, w := range words {
+		if w.Speaker == "" {
+			w.Speaker = lastSpeaker
+		}
+		if w.Speaker == "" {
+			// Leading words before any speaker is known; attach to the first
+			// run below rather than dropping them.
+			cur = append(cur, w)
+			continue
+		}
+		if n := len(cur); n > 0 {
+			if sp := cur[n-1].Speaker; sp != "" && sp != w.Speaker {
+				runs = append(runs, buildSegment(cur))
+				cur = nil
+			}
+		}
+		for i := range cur {
+			if cur[i].Speaker == "" {
+				cur[i].Speaker = w.Speaker
+			}
+		}
+		cur = append(cur, w)
+		lastSpeaker = w.Speaker
+	}
+	if len(cur) > 0 {
+		runs = append(runs, buildSegment(cur))
+	}
+	return runs
+}
+
+func buildSegment(words []wordSeg) mergedSegment {
+	texts := make([]string, len(words))
+	for i, w := range words {
+		texts[i] = w.Text
+	}
+	return mergedSegment{
+		Text:    " " + strings.Join(texts, " "),
+		Start:   words[0].Start,
+		End:     words[len(words)-1].End,
+		Speaker: words[0].Speaker,
+	}
 }

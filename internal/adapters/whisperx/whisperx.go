@@ -9,6 +9,12 @@
 // no flag to control the filename, only the directory. The adapter passes
 // --output_dir <dir> and renames the stem-derived file to the caller's
 // requested OutputFile when they differ.
+//
+// Without --no_align whisperx diarizes at word granularity, which correctly
+// attributes overlapping speech but produces a different JSON shape than
+// downstream code expects. The adapter therefore post-processes the output,
+// merging consecutive same-speaker words back into the segment format it has
+// always produced.
 package whisperx
 
 import (
@@ -47,7 +53,10 @@ func (WhisperX) Transcribe(ctx context.Context, in transcriber.Input) error {
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("whisperx: %w", err)
 	}
-	return renameStemFile(in.AudioFile, in.OutputFile, outDir)
+	if err := renameStemFile(in.AudioFile, in.OutputFile, outDir); err != nil {
+		return err
+	}
+	return transform(in.OutputFile)
 }
 
 // buildArgs returns the whisperx command-line arguments for in. Pure;
@@ -60,7 +69,6 @@ func buildArgs(in transcriber.Input, outDir string) []string {
 			"--device", "cuda",
 			"--output_format", "json",
 			"--diarize",
-			"--no_align",
 			"--print_progress", "True",
 			"--verbose", "False",
 		)

@@ -1,0 +1,769 @@
+{
+  "language": "en",
+  "segments": [
+    {
+      "start": 1.11,
+      "end": 7.013,
+      "text": " enough backup for the node to become healthy to start getting leases again, start getting SQL connections.",
+      "words": [
+        {
+          "word": "enough",
+          "start": 1.11,
+          "end": 1.37,
+          "score": 0.689,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "backup",
+          "start": 1.47,
+          "end": 1.931,
+          "score": 0.738,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "for",
+          "start": 2.131,
+          "end": 2.251,
+          "score": 0.288,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "the",
+          "start": 2.271,
+          "end": 2.391,
+          "score": 0.425,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "node",
+          "start": 2.411,
+          "end": 2.551,
+          "score": 0.488,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "to",
+          "start": 2.571,
+          "end": 2.611,
+          "score": 0.734,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "become",
+          "start": 2.651,
+          "end": 2.971,
+          "score": 0.781,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "healthy",
+          "start": 3.011,
+          "end": 3.411,
+          "score": 0.908,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "to",
+          "start": 4.072,
+          "end": 4.152,
+          "score": 0.542,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "start",
+          "start": 4.172,
+          "end": 4.332,
+          "score": 0.663,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "getting",
+          "start": 4.352,
+          "end": 4.572,
+          "score": 0.592,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "leases",
+          "start": 4.612,
+          "end": 4.972,
+          "score": 0.708,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "again,",
+          "start": 5.012,
+          "end": 5.232,
+          "score": 0.915,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "start",
+          "start": 5.272,
+          "end": 5.412,
+          "score": 0.472,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "getting",
+          "start": 5.432,
+          "end": 5.613,
+          "score": 0.274,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "SQL",
+          "start": 6.233,
+          "end": 6.513,
+          "score": 0.631,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "connections.",
+          "start": 6.533,
+          "end": 7.013,
+          "score": 0.909,
+          "speaker": "SPEAKER_00"
+        }
+      ],
+      "avg_logprob": -0.2421085810420489,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "start": 9.475,
+      "end": 12.176,
+      "text": "It doesn't really matter at that point which node we kill when it comes back up.",
+      "words": [
+        {
+          "word": "It",
+          "start": 9.475,
+          "end": 9.535,
+          "score": 0.724,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "doesn't",
+          "start": 9.555,
+          "end": 9.695,
+          "score": 0.217,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "really",
+          "start": 9.715,
+          "end": 9.915,
+          "score": 0.378,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "matter",
+          "start": 9.935,
+          "end": 10.115,
+          "score": 0.967,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "at",
+          "start": 10.135,
+          "end": 10.175,
+          "score": 0.836,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "that",
+          "start": 10.215,
+          "end": 10.315,
+          "score": 0.853,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "point",
+          "start": 10.335,
+          "end": 10.535,
+          "score": 0.702,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "which",
+          "start": 10.595,
+          "end": 10.755,
+          "score": 0.985,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "node",
+          "start": 10.835,
+          "end": 11.035,
+          "score": 0.505,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "we",
+          "start": 11.055,
+          "end": 11.136,
+          "score": 0.794,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "kill",
+          "start": 11.156,
+          "end": 11.296,
+          "score": 0.503,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "when",
+          "start": 11.316,
+          "end": 11.416,
+          "score": 0.179,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "it",
+          "start": 11.436,
+          "end": 11.476,
+          "score": 0.049,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "comes",
+          "start": 11.496,
+          "end": 11.636,
+          "score": 0.331,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "back",
+          "start": 11.676,
+          "end": 11.856,
+          "score": 0.867,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "up.",
+          "start": 11.936,
+          "end": 12.176,
+          "score": 0.555,
+          "speaker": "SPEAKER_00"
+        }
+      ],
+      "avg_logprob": -0.2421085810420489,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "start": 12.216,
+      "end": 13.897,
+      "text": "It's like, it's going to be painful no matter who it is.",
+      "words": [
+        {
+          "word": "It's",
+          "start": 12.216,
+          "end": 12.316,
+          "score": 0.67,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "like,",
+          "start": 12.356,
+          "end": 12.536,
+          "score": 0.884,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "it's",
+          "start": 12.596,
+          "end": 12.696,
+          "score": 0.747,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "going",
+          "start": 12.716,
+          "end": 12.836,
+          "score": 0.131,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "to",
+          "start": 12.856,
+          "end": 12.896,
+          "score": 0.006,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "be",
+          "start": 12.917,
+          "end": 12.957,
+          "score": 0.0,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "painful",
+          "start": 12.977,
+          "end": 13.257,
+          "score": 0.685,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "no",
+          "start": 13.277,
+          "end": 13.317,
+          "score": 0.005,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "matter",
+          "start": 13.357,
+          "end": 13.537,
+          "score": 0.516,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "who",
+          "start": 13.557,
+          "end": 13.617,
+          "score": 0.326,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "it",
+          "start": 13.657,
+          "end": 13.717,
+          "score": 0.238,
+          "speaker": "SPEAKER_00"
+        },
+        {
+          "word": "is.",
+          "start": 13.777,
+          "end": 13.897,
+          "score": 0.738,
+          "speaker": "SPEAKER_00"
+        }
+      ],
+      "avg_logprob": -0.2421085810420489,
+      "speaker": "SPEAKER_00"
+    }
+  ],
+  "word_segments": [
+    {
+      "word": "enough",
+      "start": 1.11,
+      "end": 1.37,
+      "score": 0.689,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "backup",
+      "start": 1.47,
+      "end": 1.931,
+      "score": 0.738,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "for",
+      "start": 2.131,
+      "end": 2.251,
+      "score": 0.288,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "the",
+      "start": 2.271,
+      "end": 2.391,
+      "score": 0.425,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "node",
+      "start": 2.411,
+      "end": 2.551,
+      "score": 0.488,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "to",
+      "start": 2.571,
+      "end": 2.611,
+      "score": 0.734,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "become",
+      "start": 2.651,
+      "end": 2.971,
+      "score": 0.781,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "healthy",
+      "start": 3.011,
+      "end": 3.411,
+      "score": 0.908,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "to",
+      "start": 4.072,
+      "end": 4.152,
+      "score": 0.542,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "start",
+      "start": 4.172,
+      "end": 4.332,
+      "score": 0.663,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "getting",
+      "start": 4.352,
+      "end": 4.572,
+      "score": 0.592,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "leases",
+      "start": 4.612,
+      "end": 4.972,
+      "score": 0.708,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "again,",
+      "start": 5.012,
+      "end": 5.232,
+      "score": 0.915,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "start",
+      "start": 5.272,
+      "end": 5.412,
+      "score": 0.472,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "getting",
+      "start": 5.432,
+      "end": 5.613,
+      "score": 0.274,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "SQL",
+      "start": 6.233,
+      "end": 6.513,
+      "score": 0.631,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "connections.",
+      "start": 6.533,
+      "end": 7.013,
+      "score": 0.909,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "It",
+      "start": 9.475,
+      "end": 9.535,
+      "score": 0.724,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "doesn't",
+      "start": 9.555,
+      "end": 9.695,
+      "score": 0.217,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "really",
+      "start": 9.715,
+      "end": 9.915,
+      "score": 0.378,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "matter",
+      "start": 9.935,
+      "end": 10.115,
+      "score": 0.967,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "at",
+      "start": 10.135,
+      "end": 10.175,
+      "score": 0.836,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "that",
+      "start": 10.215,
+      "end": 10.315,
+      "score": 0.853,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "point",
+      "start": 10.335,
+      "end": 10.535,
+      "score": 0.702,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "which",
+      "start": 10.595,
+      "end": 10.755,
+      "score": 0.985,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "node",
+      "start": 10.835,
+      "end": 11.035,
+      "score": 0.505,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "we",
+      "start": 11.055,
+      "end": 11.136,
+      "score": 0.794,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "kill",
+      "start": 11.156,
+      "end": 11.296,
+      "score": 0.503,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "when",
+      "start": 11.316,
+      "end": 11.416,
+      "score": 0.179,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "it",
+      "start": 11.436,
+      "end": 11.476,
+      "score": 0.049,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "comes",
+      "start": 11.496,
+      "end": 11.636,
+      "score": 0.331,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "back",
+      "start": 11.676,
+      "end": 11.856,
+      "score": 0.867,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "up.",
+      "start": 11.936,
+      "end": 12.176,
+      "score": 0.555,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "It's",
+      "start": 12.216,
+      "end": 12.316,
+      "score": 0.67,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "like,",
+      "start": 12.356,
+      "end": 12.536,
+      "score": 0.884,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "it's",
+      "start": 12.596,
+      "end": 12.696,
+      "score": 0.747,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "going",
+      "start": 12.716,
+      "end": 12.836,
+      "score": 0.131,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "to",
+      "start": 12.856,
+      "end": 12.896,
+      "score": 0.006,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "be",
+      "start": 12.917,
+      "end": 12.957,
+      "score": 0.0,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "painful",
+      "start": 12.977,
+      "end": 13.257,
+      "score": 0.685,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "no",
+      "start": 13.277,
+      "end": 13.317,
+      "score": 0.005,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "matter",
+      "start": 13.357,
+      "end": 13.537,
+      "score": 0.516,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "who",
+      "start": 13.557,
+      "end": 13.617,
+      "score": 0.326,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "it",
+      "start": 13.657,
+      "end": 13.717,
+      "score": 0.238,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "is.",
+      "start": 13.777,
+      "end": 13.897,
+      "score": 0.738,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "Yeah.",
+      "start": 17.499,
+      "end": 17.839,
+      "score": 0.679,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "word": "I",
+      "start": 18.66,
+      "end": 18.72,
+      "score": 0.183,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "word": "guess",
+      "start": 18.74,
+      "end": 18.86,
+      "score": 0.334,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "word": "even",
+      "start": 18.88,
+      "end": 18.98,
+      "score": 0.395,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "word": "if",
+      "start": 19.0,
+      "end": 19.16,
+      "score": 0.244,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "word": "the",
+      "start": 19.18,
+      "end": 19.26,
+      "score": 0.812,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "word": "same",
+      "start": 19.28,
+      "end": 19.4,
+      "score": 0.95,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "word": "noticing",
+      "start": 19.44,
+      "end": 19.8,
+      "score": 0.879,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "word": "doesn't",
+      "start": 19.94,
+      "end": 20.2,
+      "score": 0.405,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "word": "claim",
+      "start": 20.22,
+      "end": 20.401,
+      "score": 0.68,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "word": "it,",
+      "start": 20.441,
+      "end": 20.581,
+      "score": 0.804,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "word": "the",
+      "start": 20.921,
+      "end": 21.041,
+      "score": 0.932,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "word": "second",
+      "start": 21.101,
+      "end": 21.401,
+      "score": 0.857,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "word": "node,",
+      "start": 21.421,
+      "end": 21.661,
+      "score": 0.288,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "word": "when",
+      "start": 21.681,
+      "end": 21.841,
+      "score": 0.5,
+      "speaker": "SPEAKER_01"
+    }
+  ]
+}

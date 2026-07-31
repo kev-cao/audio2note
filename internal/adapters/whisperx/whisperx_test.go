@@ -27,7 +27,6 @@ func TestBuildArgs_Defaults(t *testing.T) {
 		"--device", "cuda",
 		"--output_format", "json",
 		"--diarize",
-		"--no_align",
 		"--print_progress", "True",
 		"--verbose", "False",
 		"--output_dir", "/tmp/out",
@@ -45,13 +44,16 @@ func TestBuildArgs_NoDefaults_DropsAllExceptOutputDir(t *testing.T) {
 		NoDefaults: true,
 	}
 	got := buildArgs(in, "/tmp")
-	for _, banned := range []string{"--model", "--device", "--output_format", "--diarize", "--no_align", "--print_progress", "--verbose"} {
+	for _, banned := range []string{"--model", "--device", "--output_format", "--diarize", "--print_progress", "--verbose"} {
 		if containsArg(got, banned) {
 			t.Errorf("NoDefaults should drop %q; got %v", banned, got)
 		}
 	}
 	if !containsArg(got, "--output_dir") {
 		t.Errorf("--output_dir should always be present; got %v", got)
+	}
+	if containsArg(got, "--no_align") {
+		t.Errorf("defaults should not use --no_align (word-level diarization feeds the transform); got %v", got)
 	}
 }
 
