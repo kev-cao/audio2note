@@ -8,8 +8,11 @@ import (
 	_ "audio2note/internal/adapters/claudecode"
 	_ "audio2note/internal/adapters/macwhisper"
 	_ "audio2note/internal/adapters/opencode"
+	_ "audio2note/internal/adapters/resembleenhance"
 	_ "audio2note/internal/adapters/whisperx"
 	"audio2note/internal/audiostitch"
+	"audio2note/internal/denoiser"
+	"audio2note/internal/enhancer"
 	"audio2note/internal/pipeline"
 	"audio2note/internal/summarizer"
 	"audio2note/internal/transcriber"
@@ -25,6 +28,15 @@ import (
 )
 
 const obsidianVaultEnv = "OBSIDIAN_VAULT_PATH"
+
+// defaultDenoiser / defaultEnhancer are resolved from their registries when
+// --denoise / --enhance-audio are set. There's a single adapter today (it
+// satisfies both); future --denoiser / --enhancer selection flags would slot in
+// alongside these the way --transcriber does.
+const (
+	defaultDenoiser = "resemble-enhance"
+	defaultEnhancer = "resemble-enhance"
+)
 
 // defaultTranscriptPath is where the pipeline writes the transcript when
 // --transcript-file isn't given. Stable across runs (each invocation
@@ -47,6 +59,8 @@ type flags struct {
 	summarizerNoDefaults  bool
 	prompt                string
 	editSpeakerLabels     bool
+	denoise               bool
+	enhanceAudio          bool
 	// noRename is set only by the `plaud run` subcommand; the root command
 	// never reads it. Lives here so addPipelineFlags can share the struct.
 	noRename bool
@@ -96,11 +110,20 @@ func addPipelineFlags(cmd *cobra.Command, f *flags) {
 	cmd.Flags().BoolVar(&f.summarizerNoDefaults, "summarizer-no-defaults", false, "Skip the summarizer adapter's hardcoded extra flags")
 	cmd.Flags().StringVar(&f.prompt, "prompt", "", "Extra text appended to the summarizer's prompt (e.g. \"Use bullet points and keep it under 200 words.\")")
 	cmd.Flags().BoolVar(&f.editSpeakerLabels, "edit-speaker-labels", false, "Open an interactive TUI between transcribe and summarize to rename speaker labels in the transcript")
+	cmd.Flags().BoolVar(&f.denoise, "denoise", false, "Denoise speech (via the `"+defaultDenoiser+"` CLI, denoiser only) before transcription")
+	cmd.Flags().BoolVar(&f.enhanceAudio, "enhance-audio", false, "Enhance speech (via the `"+defaultEnhancer+"` CLI, full denoise + restore — slow) before transcription")
 
 	cmd.MarkFlagsMutuallyExclusive("transcribe-only", "summarize-only")
+	// At most one of these: --denoise and --enhance-audio both preprocess audio
+	// (full enhance already denoises), and neither makes sense with --summarize-only.
+	cmd.MarkFlagsMutuallyExclusive("denoise", "enhance-audio", "summarize-only")
 }
 
 func run(ctx context.Context, audioArgs []string, f flags, vaultFlagSet bool) error {
+	// Fast-fail before stitching if --denoise/--enhance-audio's tools are missing.
+	if err := validateAudioProcessing(f); err != nil {
+		return err
+	}
 	audioPath, err := resolveAudioFiles(ctx, audioArgs, f)
 	if err != nil {
 		return err
@@ -189,6 +212,20 @@ func buildOptions(
 	if err != nil {
 		return pipeline.Options{}, fmt.Errorf("summarizer: %w", err)
 	}
+	var den denoiser.Denoiser
+	if f.denoise {
+		den, err = denoiser.Get(defaultDenoiser)
+		if err != nil {
+			return pipeline.Options{}, fmt.Errorf("denoiser: %w", err)
+		}
+	}
+	var enh enhancer.Enhancer
+	if f.enhanceAudio {
+		enh, err = enhancer.Get(defaultEnhancer)
+		if err != nil {
+			return pipeline.Options{}, fmt.Errorf("enhancer: %w", err)
+		}
+	}
 	vault, err := resolveVault(f, vaultFlagSet)
 	if err != nil {
 		return pipeline.Options{}, err
@@ -203,6 +240,8 @@ func buildOptions(
 	}
 	return pipeline.Options{
 		AudioFile:             audioPath,
+		Denoiser:              den,
+		Enhancer:              enh,
 		Transcriber:           tr,
 		Summarizer:            sum,
 		TranscriptFile:        transcriptPath,
@@ -217,6 +256,29 @@ func buildOptions(
 		ExtraPrompt:           f.prompt,
 		EditSpeakerLabels:     f.editSpeakerLabels,
 	}, nil
+}
+
+// validateAudioProcessing resolves the denoiser/enhancer and checks its
+// external tools are available when --denoise/--enhance-audio is set, so callers
+// can fast-fail before doing expensive work (downloading, stitching). The two
+// flags are mutually exclusive, so at most one branch runs. A no-op when neither
+// flag is set.
+func validateAudioProcessing(f flags) error {
+	if f.denoise {
+		d, err := denoiser.Get(defaultDenoiser)
+		if err != nil {
+			return fmt.Errorf("denoiser: %w", err)
+		}
+		return d.Validate()
+	}
+	if f.enhanceAudio {
+		e, err := enhancer.Get(defaultEnhancer)
+		if err != nil {
+			return fmt.Errorf("enhancer: %w", err)
+		}
+		return e.Validate()
+	}
+	return nil
 }
 
 // splitArgs runs a shell-style split over s. Empty input returns nil.

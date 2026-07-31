@@ -49,6 +49,10 @@ func newPlaudRunCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			// Fast-fail before any Plaud work if --denoise/--enhance-audio's tools are missing.
+			if err := validateAudioProcessing(f); err != nil {
+				return err
+			}
 			client, err := plaud.NewClient()
 			if err != nil {
 				if errors.Is(err, plaud.ErrMissing) {

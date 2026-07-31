@@ -62,6 +62,8 @@ All inputs must share the same extension/codec. For the `plaud` subcommand, the 
 | `--summarizer-no-defaults` | off | Skip the summarizer adapter's hardcoded extras (e.g. `--permission-mode acceptEdits` and `--add-dir <vault>` for `claudecode`). The prompt is still passed. |
 | `--prompt <string>` | `""` | Extra text appended to the summarizer's prompt template. Lets you shape the output style without editing adapter source. |
 | `--edit-speaker-labels` | off | Between transcribe and summarize, open an interactive TUI to rename speaker labels in the transcript. Requires a transcriber that supports speaker labels (currently `macwhisper` with a `.json` transcript). |
+| `--denoise` | off | Before transcription, denoise speech with [resemble-enhance](https://github.com/resemble-ai/resemble-enhance) (its denoiser only — fast, non-generative). Requires the `resemble-enhance` CLI on `PATH` (and `git-lfs` for its one-time model download). Uses CUDA when available, otherwise CPU. Mutually exclusive with `--enhance-audio` and `--summarize-only`. |
+| `--enhance-audio` | off | Before transcription, run the full [resemble-enhance](https://github.com/resemble-ai/resemble-enhance) pipeline (denoise **+** generative restoration). Higher quality than `--denoise` but much slower on CPU, and being generative it can subtly alter speech. Same requirements as `--denoise`. Mutually exclusive with `--denoise` and `--summarize-only`. |
 
 The hardcoded extras each adapter sets are listed in the adapter source — see `internal/adapters/macwhisper/macwhisper.go` and `internal/adapters/claudecode/claudecode.go`. Forwarding the same flag with a different value is the normal override path; both `mw` and `claude` honor last-wins for repeated flags.
 

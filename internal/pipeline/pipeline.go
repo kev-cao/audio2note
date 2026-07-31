@@ -6,6 +6,8 @@
 package pipeline
 
 import (
+	"audio2note/internal/denoiser"
+	"audio2note/internal/enhancer"
 	"audio2note/internal/speakeredit"
 	"audio2note/internal/summarizer"
 	"audio2note/internal/transcriber"
@@ -16,7 +18,13 @@ import (
 )
 
 type Options struct {
-	AudioFile             string
+	AudioFile string
+	// Denoiser and Enhancer, when non-nil, preprocess AudioFile before
+	// transcription — Denoiser removes noise, Enhancer additionally restores
+	// speech. They're mutually exclusive (the caller sets at most one) and both
+	// are skipped in SkipTranscribe mode since there's no audio to transcribe.
+	Denoiser              denoiser.Denoiser
+	Enhancer              enhancer.Enhancer
 	Transcriber           transcriber.Transcriber
 	Summarizer            summarizer.Summarizer
 	TranscriptFile        string // absolute path
@@ -46,10 +54,19 @@ type Result struct {
 }
 
 func Run(ctx context.Context, opts Options) (Result, error) {
+	audioFile := opts.AudioFile
 	if !opts.SkipTranscribe {
-		fmt.Printf("→ transcribing %s with %s → %s\n", opts.AudioFile, opts.Transcriber.Name(), opts.TranscriptFile)
+		processed, err := preprocessAudio(ctx, opts, audioFile)
+		if err != nil {
+			return Result{}, err
+		}
+		audioFile = processed
+	}
+
+	if !opts.SkipTranscribe {
+		fmt.Printf("→ transcribing %s with %s → %s\n", audioFile, opts.Transcriber.Name(), opts.TranscriptFile)
 		in := transcriber.Input{
-			AudioFile:  opts.AudioFile,
+			AudioFile:  audioFile,
 			OutputFile: opts.TranscriptFile,
 			ExtraArgs:  opts.TranscriberArgs,
 			NoDefaults: opts.TranscriberNoDefaults,
@@ -88,6 +105,32 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 		result.Title = sumRes.Title
 	}
 	return result, nil
+}
+
+// preprocessAudio runs the configured denoiser or enhancer (at most one; the
+// caller keeps them mutually exclusive) over audioFile and returns the path to
+// the processed audio. Returns audioFile unchanged when neither is set.
+func preprocessAudio(ctx context.Context, opts Options, audioFile string) (string, error) {
+	switch {
+	case opts.Denoiser != nil:
+		fmt.Printf("→ denoising %s with %s\n", audioFile, opts.Denoiser.Name())
+		out, err := opts.Denoiser.Denoise(ctx, denoiser.Input{AudioFile: audioFile, OutputDir: os.TempDir()})
+		if err != nil {
+			return "", fmt.Errorf("denoise: %w", err)
+		}
+		fmt.Printf("→ denoised audio → %s\n", out)
+		return out, nil
+	case opts.Enhancer != nil:
+		fmt.Printf("→ enhancing %s with %s\n", audioFile, opts.Enhancer.Name())
+		out, err := opts.Enhancer.Enhance(ctx, enhancer.Input{AudioFile: audioFile, OutputDir: os.TempDir()})
+		if err != nil {
+			return "", fmt.Errorf("enhance: %w", err)
+		}
+		fmt.Printf("→ enhanced audio → %s\n", out)
+		return out, nil
+	default:
+		return audioFile, nil
+	}
 }
 
 func runSpeakerEdit(opts Options) error {
