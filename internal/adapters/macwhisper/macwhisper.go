@@ -27,8 +27,7 @@ func (MacWhisper) Transcribe(ctx context.Context, in transcriber.Input) error {
 
 	args := []string{"transcribe", in.AudioFile}
 	if !in.NoDefaults {
-		// --persist saves the transcription to MacWhisper's history.
-		args = append(args, "--persist")
+		args = append(args, "--persist", "--format", "json")
 	}
 	args = append(args, in.ExtraArgs...)
 

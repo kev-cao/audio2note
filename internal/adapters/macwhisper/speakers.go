@@ -19,6 +19,9 @@ const (
 	textKey    = "text"
 )
 
+type transcript struct {
+	Segments []segment `json:"segments"`
+}
 type segment map[string]json.RawMessage
 
 func (s segment) speaker() (string, bool) {
@@ -49,6 +52,12 @@ func readSegments(path string) ([]segment, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
+	}
+	// Macwhisper exports a JSON array of segments, but the CLI exports a JSON
+	// object with a "segments" field. Try both.
+	var t transcript
+	if err := json.Unmarshal(data, &t); err == nil {
+		return t.Segments, nil
 	}
 	var segs []segment
 	if err := json.Unmarshal(data, &segs); err != nil {
