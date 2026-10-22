@@ -3,6 +3,7 @@
 package summarizer
 
 import (
+	"audio2note/internal/config"
 	"audio2note/internal/registry"
 	"context"
 	"fmt"
@@ -29,6 +30,10 @@ type Input struct {
 	// ExtraPrompt is user-supplied text appended to the summarizer's prompt
 	// template. Empty string means no addition.
 	ExtraPrompt string
+	// BasePrompt is the base instruction that opens the prompt, replacing the
+	// built-in default. May contain config.TranscriptPlaceholder, which is
+	// substituted with TranscriptFile. Empty means use config.DefaultBasePrompt.
+	BasePrompt string
 	// Highlights are timestamps (offsets from the start of the recording)
 	// marked by the user as important. Empty/nil means no highlights to call
 	// out.
@@ -58,12 +63,27 @@ type Summarizer interface {
 // layer on whatever delivery-mechanism instructions they need for title
 // capture (Claude relies on its --json-schema flag, opencode appends a
 // "write the title to <path>" instruction).
+//
+// The prompt opens with the base instruction (in.BasePrompt, or
+// config.DefaultBasePrompt when unset). config.TranscriptPlaceholder in the base
+// instruction is replaced with the transcript path; if the placeholder is
+// absent, the path is appended so the model is never left without it. The
+// conditional fragments below the base (output file, vault, highlights, title,
+// appended prompt) are always added programmatically.
 func BuildBasePrompt(in Input) string {
+	base := in.BasePrompt
+	if base == "" {
+		base = config.DefaultBasePrompt
+	}
+
 	var b strings.Builder
-	fmt.Fprintf(&b,
-		"Read through the meeting transcript written at %s and make notes from this transcript.",
-		in.TranscriptFile,
-	)
+	if strings.Contains(base, config.TranscriptPlaceholder) {
+		b.WriteString(strings.ReplaceAll(base, config.TranscriptPlaceholder, in.TranscriptFile))
+	} else {
+		b.WriteString(base)
+		fmt.Fprintf(&b, " The transcript is located at %s.", in.TranscriptFile)
+	}
+
 	if in.OutputFile != "" {
 		fmt.Fprintf(&b, " The output file for this transcript should be named %s.", in.OutputFile)
 	}

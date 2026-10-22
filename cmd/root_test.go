@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"audio2note/internal/config"
 	"context"
 	"os"
 	"path/filepath"
@@ -13,35 +14,35 @@ func TestResolveVault(t *testing.T) {
 	tests := []struct {
 		name         string
 		f            flags
+		cfgVault     string // config.obsidianVault
 		vaultFlagSet bool
-		env          string // value to set $OBSIDIAN_VAULT_PATH to ("" means unset/empty)
 		want         string
 		wantErr      string // substring expected in error message (empty = no error)
 	}{
 		{
-			name: "neither flag",
+			name: "neither flag, no config",
 			want: "",
 		},
 		{
-			name: "obsidian flag with env",
-			f:    flags{obsidian: true},
-			env:  "/from/env",
-			want: "/from/env",
+			name:     "obsidian flag with config vault",
+			f:        flags{obsidian: true},
+			cfgVault: "/from/config",
+			want:     "/from/config",
 		},
 		{
-			name:    "obsidian flag without env",
+			name:    "obsidian flag without config vault errors",
 			f:       flags{obsidian: true},
-			wantErr: "OBSIDIAN_VAULT_PATH",
+			wantErr: "obsidianVault",
 		},
 		{
-			name:         "vault flag wins over env",
+			name:         "vault flag wins over config",
 			f:            flags{obsidianVault: "/from/flag"},
 			vaultFlagSet: true,
-			env:          "/from/env",
+			cfgVault:     "/from/config",
 			want:         "/from/flag",
 		},
 		{
-			name:         "vault flag without env",
+			name:         "vault flag without config",
 			f:            flags{obsidianVault: "/only/from/flag"},
 			vaultFlagSet: true,
 			want:         "/only/from/flag",
@@ -52,11 +53,15 @@ func TestResolveVault(t *testing.T) {
 			vaultFlagSet: true,
 			wantErr:      "non-empty path",
 		},
+		{
+			name:     "config vault used when no flags",
+			cfgVault: "/from/config",
+			want:     "/from/config",
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv("OBSIDIAN_VAULT_PATH", tc.env)
-			got, err := resolveVault(tc.f, tc.vaultFlagSet)
+			got, err := resolveVault(tc.f, config.Config{ObsidianVault: tc.cfgVault}, tc.vaultFlagSet)
 			if tc.wantErr != "" {
 				if err == nil {
 					t.Fatalf("want error containing %q, got nil (returned %q)", tc.wantErr, got)

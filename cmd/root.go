@@ -11,6 +11,7 @@ import (
 	_ "audio2note/internal/adapters/resembleenhance"
 	_ "audio2note/internal/adapters/whisperx"
 	"audio2note/internal/audiostitch"
+	"audio2note/internal/config"
 	"audio2note/internal/denoiser"
 	"audio2note/internal/enhancer"
 	"audio2note/internal/pipeline"
@@ -26,8 +27,6 @@ import (
 	"github.com/google/shlex"
 	"github.com/spf13/cobra"
 )
-
-const obsidianVaultEnv = "OBSIDIAN_VAULT_PATH"
 
 // defaultDenoiser / defaultEnhancer are resolved from their registries when
 // --denoise / --enhance-audio are set. There's a single adapter today (it
@@ -57,10 +56,13 @@ type flags struct {
 	transcriberNoDefaults bool
 	summarizerArgs        string
 	summarizerNoDefaults  bool
-	prompt                string
+	appendPrompt          string
 	editSpeakerLabels     bool
 	denoise               bool
 	enhanceAudio          bool
+	// basePrompt is not a flag; it's populated from config (config.Effective's
+	// BasePrompt) by applyConfig and flows into pipeline.Options.BasePrompt.
+	basePrompt string
 	// noRename is set only by the `plaud run` subcommand; the root command
 	// never reads it. Lives here so addPipelineFlags can share the struct.
 	noRename bool
@@ -71,7 +73,7 @@ func newRootCmd() *cobra.Command {
 		Use:   "audio2note",
 		Short: "Transcribe one or more audio files and summarize them into meeting notes.",
 	}
-	cmd.AddCommand(newRunCmd(), newPlaudCmd())
+	cmd.AddCommand(newRunCmd(), newPlaudCmd(), newConfigCmd())
 	return cmd
 }
 
@@ -86,7 +88,14 @@ func newRunCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return run(cmd.Context(), args, f, cmd.Flags().Changed("obsidian-vault"))
+			cfg, err := config.Effective()
+			if err != nil {
+				return err
+			}
+			if err := applyConfig(cmd, &f, cfg); err != nil {
+				return err
+			}
+			return run(cmd.Context(), args, f, cfg, cmd.Flags().Changed("obsidian-vault"))
 		},
 	}
 	addPipelineFlags(cmd, &f)
@@ -96,10 +105,10 @@ func newRunCmd() *cobra.Command {
 // addPipelineFlags registers the shared pipeline flags on cmd. Used by the
 // root command (local audio file flow) and by `plaud run` (Plaud source flow).
 func addPipelineFlags(cmd *cobra.Command, f *flags) {
-	addRegistryFlag(cmd, &f.transcriber, "transcriber", "macwhisper", "Transcriber adapter to use", transcriber.Names)
-	addRegistryFlag(cmd, &f.summarizer, "summarizer", "claudecode", "Summarizer adapter to use", summarizer.Names)
+	addRegistryFlag(cmd, &f.transcriber, "transcriber", config.DefaultTranscriber, "Transcriber adapter to use", transcriber.Names)
+	addRegistryFlag(cmd, &f.summarizer, "summarizer", config.DefaultSummarizer, "Summarizer adapter to use", summarizer.Names)
 	cmd.Flags().StringVar(&f.transcriptFile, "transcript-file", "", "Path to the transcript file (defaults to "+defaultTranscriptPath+")")
-	cmd.Flags().BoolVar(&f.obsidian, "obsidian", false, "Write notes to the Obsidian vault at $"+obsidianVaultEnv)
+	cmd.Flags().BoolVar(&f.obsidian, "obsidian", false, "Write notes to the Obsidian vault configured as obsidianVault in the config file")
 	cmd.Flags().StringVar(&f.obsidianVault, "obsidian-vault", "", "Explicit Obsidian vault path (implies --obsidian)")
 	cmd.Flags().StringVar(&f.outputFile, "output-file", "", "If set, instructs the summarizer to use this exact file name; otherwise the summarizer chooses")
 	cmd.Flags().BoolVar(&f.transcribeOnly, "transcribe-only", false, "Run only the transcriber (skip summarization)")
@@ -108,7 +117,7 @@ func addPipelineFlags(cmd *cobra.Command, f *flags) {
 	cmd.Flags().BoolVar(&f.transcriberNoDefaults, "transcriber-no-defaults", false, "Skip the transcriber adapter's hardcoded extra flags")
 	cmd.Flags().StringVar(&f.summarizerArgs, "summarizer-args", "", "Extra args to forward to the summarizer CLI (shell-quoted, e.g. \"--model claude-sonnet-4-6\")")
 	cmd.Flags().BoolVar(&f.summarizerNoDefaults, "summarizer-no-defaults", false, "Skip the summarizer adapter's hardcoded extra flags")
-	cmd.Flags().StringVar(&f.prompt, "prompt", "", "Extra text appended to the summarizer's prompt (e.g. \"Use bullet points and keep it under 200 words.\")")
+	cmd.Flags().StringVar(&f.appendPrompt, "append-prompt", "", "Extra text appended to the summarizer's base prompt (e.g. \"Use bullet points and keep it under 200 words.\"). To change the base prompt itself, set basePrompt in the config file (see 'audio2note config help basePrompt').")
 	cmd.Flags().BoolVar(&f.editSpeakerLabels, "edit-speaker-labels", false, "Open an interactive TUI between transcribe and summarize to rename speaker labels in the transcript")
 	cmd.Flags().BoolVar(&f.denoise, "denoise", false, "Denoise speech (via the `"+defaultDenoiser+"` CLI, denoiser only) before transcription")
 	cmd.Flags().BoolVar(&f.enhanceAudio, "enhance-audio", false, "(experimental) Full `"+defaultEnhancer+"` speech restoration before transcription. Generative — can alter words and hurt transcription accuracy; slow. Prefer --denoise.")
@@ -119,7 +128,9 @@ func addPipelineFlags(cmd *cobra.Command, f *flags) {
 	cmd.MarkFlagsMutuallyExclusive("denoise", "enhance-audio", "summarize-only")
 }
 
-func run(ctx context.Context, audioArgs []string, f flags, vaultFlagSet bool) error {
+func run(
+	ctx context.Context, audioArgs []string, f flags, cfg config.Config, vaultFlagSet bool,
+) error {
 	// Fast-fail before stitching if --denoise/--enhance-audio's tools are missing.
 	if err := validateAudioProcessing(f); err != nil {
 		return err
@@ -132,7 +143,7 @@ func run(ctx context.Context, audioArgs []string, f flags, vaultFlagSet bool) er
 	if err != nil {
 		return err
 	}
-	opts, err := buildOptions(f, audioPath, transcriptPath, vaultFlagSet)
+	opts, err := buildOptions(f, cfg, audioPath, transcriptPath, vaultFlagSet)
 	if err != nil {
 		return err
 	}
@@ -140,6 +151,31 @@ func run(ctx context.Context, audioArgs []string, f flags, vaultFlagSet bool) er
 	// returned Result (RequestTitle stays false here).
 	_, err = pipeline.Run(ctx, opts)
 	return err
+}
+
+// applyConfig fills flags the user did NOT set explicitly with values from cfg
+// (the effective config = defaults overlaid with the file). Explicit flags always
+// win — a field is only overwritten when cmd.Flags().Changed(name) is false.
+// config-provided adapter names are validated against the registries here so a
+// hand-edited config.json surfaces a clear error up front. The vault is resolved
+// separately (resolveVault) because it also weighs --obsidian/env.
+func applyConfig(cmd *cobra.Command, f *flags, cfg config.Config) error {
+	if !cmd.Flags().Changed("transcriber") && cfg.DefaultTranscriber != "" {
+		if _, err := transcriber.Get(cfg.DefaultTranscriber); err != nil {
+			return fmt.Errorf("config defaultTranscriber: %w", err)
+		}
+		f.transcriber = cfg.DefaultTranscriber
+	}
+	if !cmd.Flags().Changed("summarizer") && cfg.DefaultSummarizer != "" {
+		if _, err := summarizer.Get(cfg.DefaultSummarizer); err != nil {
+			return fmt.Errorf("config defaultSummarizer: %w", err)
+		}
+		f.summarizer = cfg.DefaultSummarizer
+	}
+	// basePrompt has no flag; config (effective, so at least the default) is its
+	// only source.
+	f.basePrompt = cfg.BasePrompt
+	return nil
 }
 
 // resolveAudioFiles reads the positional audio file arguments. Returns empty
@@ -202,7 +238,7 @@ func resolveTranscriptPath(f flags) (string, error) {
 // pipeline.Options. The caller is responsible for setting source-specific
 // fields like Highlights afterward.
 func buildOptions(
-	f flags, audioPath, transcriptPath string, vaultFlagSet bool,
+	f flags, cfg config.Config, audioPath, transcriptPath string, vaultFlagSet bool,
 ) (pipeline.Options, error) {
 	tr, err := transcriber.Get(f.transcriber)
 	if err != nil {
@@ -226,7 +262,7 @@ func buildOptions(
 			return pipeline.Options{}, fmt.Errorf("enhancer: %w", err)
 		}
 	}
-	vault, err := resolveVault(f, vaultFlagSet)
+	vault, err := resolveVault(f, cfg, vaultFlagSet)
 	if err != nil {
 		return pipeline.Options{}, err
 	}
@@ -253,7 +289,8 @@ func buildOptions(
 		TranscriberNoDefaults: f.transcriberNoDefaults,
 		SummarizerArgs:        summarizerArgs,
 		SummarizerNoDefaults:  f.summarizerNoDefaults,
-		ExtraPrompt:           f.prompt,
+		ExtraPrompt:           f.appendPrompt,
+		BasePrompt:            f.basePrompt,
 		EditSpeakerLabels:     f.editSpeakerLabels,
 	}, nil
 }
@@ -289,11 +326,13 @@ func splitArgs(s string) ([]string, error) {
 	return shlex.Split(s)
 }
 
-// resolveVault picks the Obsidian vault path according to the rules:
+// resolveVault picks the Obsidian vault path according to the rules (explicit
+// flags always beat config):
 //  1. --obsidian-vault wins outright (and implies --obsidian).
-//  2. --obsidian alone reads $OBSIDIAN_VAULT_PATH; empty env is an error.
-//  3. Neither flag set: empty string (no vault output).
-func resolveVault(f flags, vaultFlagSet bool) (string, error) {
+//  2. --obsidian uses config's obsidianVault; an unset config vault is an error.
+//  3. config's obsidianVault, when set, enables vault output on its own.
+//  4. None of the above: empty string (no vault output).
+func resolveVault(f flags, cfg config.Config, vaultFlagSet bool) (string, error) {
 	if vaultFlagSet {
 		if f.obsidianVault == "" {
 			return "", fmt.Errorf("--obsidian-vault requires a non-empty path")
@@ -301,11 +340,13 @@ func resolveVault(f flags, vaultFlagSet bool) (string, error) {
 		return f.obsidianVault, nil
 	}
 	if f.obsidian {
-		v := os.Getenv(obsidianVaultEnv)
-		if v == "" {
-			return "", fmt.Errorf("--obsidian was set but $%s is empty", obsidianVaultEnv)
+		if cfg.ObsidianVault == "" {
+			return "", fmt.Errorf("--obsidian requires obsidianVault to be set in config (run `audio2note config set obsidianVault <path>`) or pass --obsidian-vault")
 		}
-		return v, nil
+		return cfg.ObsidianVault, nil
+	}
+	if cfg.ObsidianVault != "" {
+		return cfg.ObsidianVault, nil
 	}
 	return "", nil
 }

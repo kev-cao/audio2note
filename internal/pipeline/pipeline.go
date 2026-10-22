@@ -37,8 +37,11 @@ type Options struct {
 	SummarizerArgs        []string
 	SummarizerNoDefaults  bool
 	ExtraPrompt           string
-	EditSpeakerLabels     bool
-	Highlights            []time.Duration
+	// BasePrompt replaces the summarizer's built-in base instruction. Empty
+	// means use config.DefaultBasePrompt. See summarizer.Input.BasePrompt.
+	BasePrompt        string
+	EditSpeakerLabels bool
+	Highlights        []time.Duration
 	// RequestTitle asks the summarizer to produce a meeting title alongside
 	// its notes; the title shows up on the returned Result. Callers that
 	// don't want a title (root command) leave this false.
@@ -95,6 +98,7 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 			ExtraArgs:      opts.SummarizerArgs,
 			NoDefaults:     opts.SummarizerNoDefaults,
 			ExtraPrompt:    opts.ExtraPrompt,
+			BasePrompt:     opts.BasePrompt,
 			Highlights:     opts.Highlights,
 			RequestTitle:   opts.RequestTitle,
 		}

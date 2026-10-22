@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"audio2note/internal/audiostitch"
+	"audio2note/internal/config"
 	"audio2note/internal/pipeline"
 	"audio2note/internal/plaud"
 	"audio2note/internal/plaudpicker"
@@ -53,6 +54,13 @@ func newPlaudRunCmd() *cobra.Command {
 			if err := validateAudioProcessing(f); err != nil {
 				return err
 			}
+			cfg, err := config.Effective()
+			if err != nil {
+				return err
+			}
+			if err := applyConfig(cmd, &f, cfg); err != nil {
+				return err
+			}
 			client, err := plaud.NewClient()
 			if err != nil {
 				if errors.Is(err, plaud.ErrMissing) {
@@ -60,7 +68,7 @@ func newPlaudRunCmd() *cobra.Command {
 				}
 				return err
 			}
-			return runPlaud(cmd.Context(), client, f, cmd.Flags().Changed("obsidian-vault"))
+			return runPlaud(cmd.Context(), client, f, cfg, cmd.Flags().Changed("obsidian-vault"))
 		},
 	}
 	addPipelineFlags(cmd, &f)
@@ -73,7 +81,9 @@ func newPlaudRunCmd() *cobra.Command {
 // runPlaud is the testable post-construction handler: lists, opens the
 // picker, and (on a successful pick) hands off to runPlaudAfterPick. The
 // picker itself isn't covered by tests (TUI); runPlaudAfterPick is.
-func runPlaud(ctx context.Context, client plaud.Client, f flags, vaultFlagSet bool) error {
+func runPlaud(
+	ctx context.Context, client plaud.Client, f flags, cfg config.Config, vaultFlagSet bool,
+) error {
 	fmt.Println("→ fetching Plaud library…")
 	files, err := client.ListFiles(ctx)
 	if err != nil {
@@ -89,7 +99,7 @@ func runPlaud(ctx context.Context, client plaud.Client, f flags, vaultFlagSet bo
 	if !ok || len(selected) == 0 {
 		return errors.New("plaud selection cancelled")
 	}
-	opts, err := runPlaudAfterPick(ctx, client, selected, f, vaultFlagSet)
+	opts, err := runPlaudAfterPick(ctx, client, selected, f, cfg, vaultFlagSet)
 	if err != nil {
 		return err
 	}
@@ -140,7 +150,12 @@ func renamePlaudFiles(
 // side-effecting Plaud work from the pipeline invocation makes this function
 // testable in isolation.
 func runPlaudAfterPick(
-	ctx context.Context, client plaud.Client, selected []plaud.File, f flags, vaultFlagSet bool,
+	ctx context.Context,
+	client plaud.Client,
+	selected []plaud.File,
+	f flags,
+	cfg config.Config,
+	vaultFlagSet bool,
 ) (pipeline.Options, error) {
 	if len(selected) == 0 {
 		return pipeline.Options{}, errors.New("no recordings selected")
@@ -168,7 +183,7 @@ func runPlaudAfterPick(
 		return pipeline.Options{}, err
 	}
 
-	opts, err := buildOptions(f, audioPath, transcriptPath, vaultFlagSet)
+	opts, err := buildOptions(f, cfg, audioPath, transcriptPath, vaultFlagSet)
 	if err != nil {
 		return pipeline.Options{}, err
 	}

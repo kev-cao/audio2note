@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"audio2note/internal/config"
 	"audio2note/internal/plaud"
 	"context"
 	"errors"
@@ -88,7 +89,7 @@ func TestRunPlaudAfterPick_SummarizeOnly_FileExists_SkipsDownload(t *testing.T) 
 	f := baseFlags(transcriptPath)
 	f.summarizeOnly = true
 
-	opts, err := runPlaudAfterPick(context.Background(), fp, []plaud.File{sampleFile()}, f, false)
+	opts, err := runPlaudAfterPick(context.Background(), fp, []plaud.File{sampleFile()}, f, config.Config{}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +121,7 @@ func TestRunPlaudAfterPick_SummarizeOnly_FileMissing_Downloads(t *testing.T) {
 	f := baseFlags(transcriptPath)
 	f.summarizeOnly = true
 
-	opts, err := runPlaudAfterPick(context.Background(), fp, []plaud.File{sampleFile()}, f, false)
+	opts, err := runPlaudAfterPick(context.Background(), fp, []plaud.File{sampleFile()}, f, config.Config{}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +144,7 @@ func TestRunPlaudAfterPick_DefaultFlow_DownloadsAudio(t *testing.T) {
 	f := baseFlags(transcriptPath)
 	// default flow — neither summarizeOnly nor transcribeOnly
 
-	opts, err := runPlaudAfterPick(context.Background(), fp, []plaud.File{sampleFile()}, f, false)
+	opts, err := runPlaudAfterPick(context.Background(), fp, []plaud.File{sampleFile()}, f, config.Config{}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +176,7 @@ func TestRunPlaudAfterPick_HighlightsErrorIsNonFatal(t *testing.T) {
 	f := baseFlags(transcriptPath)
 	f.summarizeOnly = true
 
-	opts, err := runPlaudAfterPick(context.Background(), fp, []plaud.File{sampleFile()}, f, false)
+	opts, err := runPlaudAfterPick(context.Background(), fp, []plaud.File{sampleFile()}, f, config.Config{}, false)
 	if err != nil {
 		t.Errorf("highlight error should not abort the pipeline; got %v", err)
 	}
@@ -194,7 +195,7 @@ func TestRunPlaudAfterPick_NoHighlightsLeavesFieldNil(t *testing.T) {
 	f := baseFlags(transcriptPath)
 	f.summarizeOnly = true
 
-	opts, err := runPlaudAfterPick(context.Background(), fp, []plaud.File{sampleFile()}, f, false)
+	opts, err := runPlaudAfterPick(context.Background(), fp, []plaud.File{sampleFile()}, f, config.Config{}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +214,7 @@ func TestRunPlaudAfterPick_SummarizeOnly_MultiRequiresExistingTranscript(t *test
 	a := plaud.File{ID: "a", Filename: "A", Extension: ".mp3", Duration: 60 * time.Second}
 	b := plaud.File{ID: "b", Filename: "B", Extension: ".mp3", Duration: 30 * time.Second}
 
-	_, err := runPlaudAfterPick(context.Background(), fp, []plaud.File{a, b}, f, false)
+	_, err := runPlaudAfterPick(context.Background(), fp, []plaud.File{a, b}, f, config.Config{}, false)
 	if err == nil {
 		t.Fatal("want error when --summarize-only multi has no local transcript; got nil")
 	}
@@ -237,7 +238,7 @@ func TestRunPlaudAfterPick_SummarizeOnly_MultiFetchesHighlightsForAll(t *testing
 	a := plaud.File{ID: "a", Filename: "A", Extension: ".mp3", Duration: 60 * time.Second}
 	b := plaud.File{ID: "b", Filename: "B", Extension: ".mp3", Duration: 30 * time.Second}
 
-	opts, err := runPlaudAfterPick(context.Background(), fp, []plaud.File{a, b}, f, false)
+	opts, err := runPlaudAfterPick(context.Background(), fp, []plaud.File{a, b}, f, config.Config{}, false)
 	if err != nil {
 		t.Fatal(err)
 	}

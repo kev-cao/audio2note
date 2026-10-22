@@ -11,7 +11,7 @@ func TestBuildBasePrompt_Minimal(t *testing.T) {
 		TranscriptFile: "/abs/transcript.txt",
 		OutputFile:     "notes.md",
 	})
-	want := "Read through the meeting transcript written at /abs/transcript.txt and make notes from this transcript. The output file for this transcript should be named notes.md."
+	want := "Read through the transcript located at /abs/transcript.txt and generate a summary. The output file for this transcript should be named notes.md."
 	if got != want {
 		t.Errorf("BuildBasePrompt minimal mismatch\n got: %q\nwant: %q", got, want)
 	}
@@ -79,7 +79,7 @@ func TestBuildBasePrompt_OmitsOutputFileWhenEmpty(t *testing.T) {
 	if strings.Contains(got, "output file") {
 		t.Errorf("output-file sentence should be omitted when OutputFile is empty\nprompt: %q", got)
 	}
-	want := "Read through the meeting transcript written at /abs/transcript.txt and make notes from this transcript."
+	want := "Read through the transcript located at /abs/transcript.txt and generate a summary."
 	if got != want {
 		t.Errorf("unexpected prompt\n got: %q\nwant: %q", got, want)
 	}
@@ -177,6 +177,46 @@ func TestBuildBasePrompt_TitleBeforeExtraPrompt(t *testing.T) {
 	}
 	if titleIdx > extraIdx {
 		t.Error("title guidance should appear before the user's extra prompt")
+	}
+}
+
+func TestBuildBasePrompt_BasePromptOverrideReplacesDefault(t *testing.T) {
+	got := BuildBasePrompt(Input{
+		TranscriptFile: "/abs/transcript.txt",
+		BasePrompt:     "Summarize {{transcript}} tersely.",
+	})
+	want := "Summarize /abs/transcript.txt tersely."
+	if got != want {
+		t.Errorf("base prompt override mismatch\n got: %q\nwant: %q", got, want)
+	}
+	if strings.Contains(got, "generate a summary") {
+		t.Errorf("default base sentence should be gone when BasePrompt is set; prompt: %q", got)
+	}
+}
+
+func TestBuildBasePrompt_BasePromptWithoutPlaceholderGetsPathAppended(t *testing.T) {
+	got := BuildBasePrompt(Input{
+		TranscriptFile: "/abs/transcript.txt",
+		BasePrompt:     "Write terse bullets.",
+	})
+	want := "Write terse bullets. The transcript is located at /abs/transcript.txt."
+	if got != want {
+		t.Errorf("missing-placeholder handling mismatch\n got: %q\nwant: %q", got, want)
+	}
+}
+
+func TestBuildBasePrompt_BasePromptKeepsStructuralFragments(t *testing.T) {
+	got := BuildBasePrompt(Input{
+		TranscriptFile: "/abs/transcript.txt",
+		BasePrompt:     "Summarize {{transcript}}.",
+		OutputFile:     "notes.md",
+		RequestTitle:   true,
+	})
+	if !strings.Contains(got, "The output file for this transcript should be named notes.md.") {
+		t.Errorf("output-file fragment should still be appended under a custom base prompt; prompt: %q", got)
+	}
+	if !strings.Contains(got, "short, descriptive title") {
+		t.Errorf("title fragment should still be appended under a custom base prompt; prompt: %q", got)
 	}
 }
 
