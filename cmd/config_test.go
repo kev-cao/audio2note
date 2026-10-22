@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"audio2note/internal/config"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -12,6 +13,9 @@ import (
 // settings table must survive a get.
 func TestSettingsRoundTrip(t *testing.T) {
 	for _, s := range settings {
+		if s.set == nil {
+			continue // read-only setting (e.g. plaudToken); covered separately
+		}
 		var c config.Config
 		s.set(&c, "x-value")
 		if got := s.get(c); got != "x-value" {
@@ -37,6 +41,31 @@ func TestRestrictedSettingsHaveOptions(t *testing.T) {
 func TestFindSettingUnknown(t *testing.T) {
 	if _, ok := findSetting("nope"); ok {
 		t.Error("findSetting should report false for an unknown key")
+	}
+}
+
+func TestPlaudTokenSettingIsMaskedAndReadOnly(t *testing.T) {
+	s, ok := findSetting("plaudToken")
+	if !ok {
+		t.Fatal("missing plaudToken setting")
+	}
+	if s.set != nil {
+		t.Error("plaudToken must not be settable via `config set`")
+	}
+	if s.setHint == "" {
+		t.Error("plaudToken needs a setHint pointing at plaud auth setup")
+	}
+	// A real token value must never appear in the displayed string.
+	got := s.get(config.Config{PlaudToken: "super-secret-token"})
+	if strings.Contains(got, "super-secret-token") {
+		t.Errorf("get leaked the token: %q", got)
+	}
+	if !strings.Contains(got, "*") {
+		t.Errorf("get should show asterisks when set: %q", got)
+	}
+	// Unset shows a hint rather than asterisks.
+	if unset := s.get(config.Config{}); strings.Contains(unset, "*") {
+		t.Errorf("get should not show asterisks when unset: %q", unset)
 	}
 }
 

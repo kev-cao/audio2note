@@ -73,6 +73,20 @@ func TestEffectiveOverlaysFileOverDefaults(t *testing.T) {
 	}
 }
 
+func TestEffectivePreservesPlaudToken(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if err := Save(Config{PlaudToken: "tok-123"}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Effective()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.PlaudToken != "tok-123" {
+		t.Errorf("Effective dropped PlaudToken: got %q, want tok-123", got.PlaudToken)
+	}
+}
+
 func TestLoadMalformedJSONErrors(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

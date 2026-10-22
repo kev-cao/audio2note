@@ -42,6 +42,10 @@ type Config struct {
 	DefaultSummarizer  string `json:"defaultSummarizer,omitempty"`
 	BasePrompt         string `json:"basePrompt,omitempty"`
 	ObsidianVault      string `json:"obsidianVault,omitempty"`
+	// PlaudToken is the Plaud bearer token. It's managed through
+	// `audio2note plaud auth setup`, not `config set`, and is shown masked by
+	// `config get`.
+	PlaudToken string `json:"plaudToken,omitempty"`
 }
 
 // Defaults returns the baseline config used when no file exists (and the base
@@ -111,6 +115,9 @@ func merge(base, override Config) Config {
 	}
 	if override.ObsidianVault != "" {
 		base.ObsidianVault = override.ObsidianVault
+	}
+	if override.PlaudToken != "" {
+		base.PlaudToken = override.PlaudToken
 	}
 	return base
 }

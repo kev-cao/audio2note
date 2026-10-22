@@ -22,7 +22,20 @@ type setting struct {
 	// them). nil means free-form text.
 	options func() []string
 	get     func(config.Config) string
+	// set applies a new value. nil means the key is not settable via
+	// `config set` (e.g. secrets managed elsewhere); setHint explains the
+	// alternative in the rejection message.
 	set     func(*config.Config, string)
+	setHint string
+}
+
+// maskedToken renders a secret for display: fixed-width asterisks when set (the
+// real value is never printed), with a hint to change it via plaud auth setup.
+func maskedToken(tok string) string {
+	if tok == "" {
+		return "(not set — run `audio2note plaud auth setup` to set it)"
+	}
+	return "******** (to change, run `audio2note plaud auth setup`)"
 }
 
 var settings = []setting{
@@ -55,6 +68,13 @@ var settings = []setting{
 			"--obsidian-vault overrides it for a single run, and --obsidian forces vault output using this value.",
 		get: func(c config.Config) string { return c.ObsidianVault },
 		set: func(c *config.Config, v string) { c.ObsidianVault = v },
+	},
+	{
+		key:     "plaudToken",
+		help:    "Your Plaud bearer token, used by the `plaud` commands. Managed via `audio2note plaud auth setup`; shown masked.",
+		get:     func(c config.Config) string { return maskedToken(c.PlaudToken) },
+		set:     nil, // secret — set it via `plaud auth setup`
+		setHint: "run `audio2note plaud auth setup`",
 	},
 }
 
@@ -131,6 +151,9 @@ func newConfigSetCmd() *cobra.Command {
 			s, ok := findSetting(key)
 			if !ok {
 				return unknownKeyErr(key)
+			}
+			if s.set == nil {
+				return fmt.Errorf("%s can't be set with `config set` — %s", key, s.setHint)
 			}
 			if s.options != nil && !slices.Contains(s.options(), value) {
 				return fmt.Errorf("invalid value %q for %s (one of: %s)", value, key, strings.Join(s.options(), ", "))

@@ -355,7 +355,7 @@ func newPlaudAuthCmd() *cobra.Command {
 func newPlaudAuthSetupCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:           "setup",
-		Short:         "Prompt for a Plaud bearer token and save it to ~/.plaud/token",
+		Short:         "Prompt for a Plaud bearer token and save it to the config file",
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -369,7 +369,7 @@ func newPlaudAuthSetupCmd() *cobra.Command {
 			if err := plaud.SaveToken(token); err != nil {
 				return err
 			}
-			path, _ := plaud.TokenPath()
+			path, _ := config.Path()
 			fmt.Printf("✓ saved token to %s\n", path)
 			return nil
 		},

@@ -1,9 +1,8 @@
 package plaud
 
 import (
+	"audio2note/internal/config"
 	"errors"
-	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -42,28 +41,6 @@ func TestSaveToken_RejectsEmpty(t *testing.T) {
 	}
 }
 
-func TestSaveToken_FilePerms(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	if err := SaveToken("abc"); err != nil {
-		t.Fatal(err)
-	}
-	path, _ := TokenPath()
-	info, err := os.Stat(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if perm := info.Mode().Perm(); perm != 0o600 {
-		t.Errorf("file perms = %o, want 0600", perm)
-	}
-	dirInfo, err := os.Stat(filepath.Dir(path))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if perm := dirInfo.Mode().Perm(); perm != 0o700 {
-		t.Errorf("dir perms = %o, want 0700", perm)
-	}
-}
-
 func TestLoadToken_Missing(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	_, err := LoadToken()
@@ -72,14 +49,10 @@ func TestLoadToken_Missing(t *testing.T) {
 	}
 }
 
-func TestLoadToken_EmptyFile(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	path := filepath.Join(home, ".plaud", "token")
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte("   \n"), 0o600); err != nil {
+func TestLoadToken_MissingWhenConfigHasOtherKeys(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	// A config file that exists but has no plaudToken must still be ErrMissing.
+	if err := config.Save(config.Config{ObsidianVault: "/v"}); err != nil {
 		t.Fatal(err)
 	}
 	_, err := LoadToken()
@@ -99,5 +72,27 @@ func TestSaveToken_Overwrites(t *testing.T) {
 	got, _ := LoadToken()
 	if got != "second" {
 		t.Errorf("got %q, want %q", got, "second")
+	}
+}
+
+// SaveToken must preserve the user's other config keys (it's a merge, not a
+// clobber).
+func TestSaveToken_PreservesOtherKeys(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if err := config.Save(config.Config{BasePrompt: "keep me", ObsidianVault: "/v"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveToken("tok"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.BasePrompt != "keep me" || got.ObsidianVault != "/v" {
+		t.Errorf("SaveToken clobbered other keys: %+v", got)
+	}
+	if got.PlaudToken != "tok" {
+		t.Errorf("PlaudToken = %q, want tok", got.PlaudToken)
 	}
 }

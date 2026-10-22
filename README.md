@@ -76,7 +76,7 @@ All inputs must share the same extension/codec.
 
 | Command | What it does |
 | --- | --- |
-| `plaud auth setup` | Prompt for a Plaud bearer token and save it to `~/.plaud/token`. |
+| `plaud auth setup` | Prompt for a Plaud bearer token and save it to the config file (`plaudToken`). |
 | `plaud auth validate` | Check that the saved token is still accepted by Plaud. |
 | `plaud run` | List your library, pick one or more recordings in a TUI, then run the transcribe + summarize pipeline. |
 
@@ -92,7 +92,7 @@ Then save it:
 
 ```sh
 audio2note plaud auth setup
-# paste the token when prompted; it's written to ~/.plaud/token (0600)
+# paste the token when prompted; it's stored as plaudToken in ~/.audio2note/config.json (0600)
 ```
 
 Confirm it works:
@@ -191,6 +191,7 @@ writes only the keys you've set (file stays minimal). `config get` shows the
 | `defaultSummarizer` | `claudecode` | The default AI harness, used when `--summarizer` isn't passed. One of `claudecode`, `opencode`. |
 | `basePrompt` | _(generic, see below)_ | The base instruction the summarizer opens with. Replaces the built-in default. |
 | `obsidianVault` | unset | Default Obsidian vault path. When set, notes go to the vault by default (no flag needed). `--obsidian-vault` overrides it per run; `--obsidian` forces vault output using it. |
+| `plaudToken` | unset | Your Plaud bearer token, used by the `plaud` commands. Set it with [`plaud auth setup`](#plaud-setup), not `config set`; `config get` shows it masked. |
 
 ### Base prompt and `{{transcript}}`
 
