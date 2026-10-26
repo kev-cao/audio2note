@@ -72,20 +72,20 @@ Shared by `run` and `plaud run` (`--no-rename` is `plaud run`-only):
 
 | Flag | Default | Behavior |
 | --- | --- | --- |
-| `--transcriber` | `macwhisper` | Transcriber adapter (`macwhisper`, `whisperx`). |
-| `--summarizer` | `claudecode` | Summarizer adapter (`claudecode`, `opencode`). |
-| `--transcript-file <path>` | temp file | Where the transcript is written / read from. |
-| `--obsidian` | off | Write notes to the `obsidianVault` set in [config](#configuration). |
+| `-t`, `--transcriber` | `macwhisper` | Transcriber adapter (`macwhisper`, `whisperx`). |
+| `-s`, `--summarizer` | `claudecode` | Summarizer adapter (`claudecode`, `opencode`). |
+| `-f`, `--transcript-file <path>` | temp file | Where the transcript is written / read from. |
+| `-O`, `--obsidian` | off | Write notes to the `obsidianVault` set in [config](#configuration). |
 | `--obsidian-vault <path>` | unset | Vault path for this run (implies `--obsidian`). |
-| `--output-file <name>` | _(summarizer chooses)_ | Force the notes filename. |
-| `--transcribe-only` | off | Transcribe and stop. |
-| `--summarize-only` | off | Summarize an existing transcript (no audio needed). |
+| `-o`, `--output-file <name>` | _(summarizer chooses)_ | Force the notes filename. |
+| `-T`, `--transcribe-only` | off | Transcribe and stop. |
+| `-S`, `--summarize-only` | off | Summarize an existing transcript (no audio needed). |
 | `--transcriber-args <string>` | `""` | Extra shell-quoted args forwarded to the transcriber CLI. |
 | `--summarizer-args <string>` | `""` | Extra shell-quoted args forwarded to the summarizer CLI. |
 | `--transcriber-no-defaults` | off | Skip the transcriber adapter's hardcoded extra flags. |
 | `--summarizer-no-defaults` | off | Skip the summarizer adapter's hardcoded extra flags. |
-| `--append-prompt <string>` | `""` | Text appended after the base prompt for one run (change the base prompt via `basePrompt` in [config](#configuration)). |
-| `--edit-speaker-labels` | off | Rename speaker labels interactively before summarizing (see [below](#speaker-label-editing)). |
+| `-p`, `--append-prompt <string>` | `""` | Text appended after the base prompt for one run (change the base prompt via `basePrompt` in [config](#configuration)). |
+| `-e`, `--edit-speaker-labels` | off | Rename speaker labels interactively before summarizing (see [below](#speaker-label-editing)). |
 | `--denoise` | off | Denoise audio with resemble-enhance before transcription (fast, non-generative). Excludes `--enhance-audio`. |
 | `--enhance-audio` | off | **Experimental.** Full resemble-enhance restoration (generative); can alter words and hurt accuracy — prefer `--denoise`. |
 | `--no-rename` _(plaud)_ | off | Don't auto-rename the Plaud recording after the run. |

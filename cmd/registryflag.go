@@ -30,11 +30,17 @@ func (v *registryValue) Set(s string) error {
 
 // addRegistryFlag declares an enum-style flag whose valid values come from
 // allowed(). The flag description is augmented with the list of options so
-// the user sees them in --help; shell completion suggests them too.
-func addRegistryFlag(cmd *cobra.Command, target *string, name, def, baseHelp string, allowed func() []string) {
+// the user sees them in --help; shell completion suggests them too. shorthand
+// is the single-letter short form (pass "" for none).
+func addRegistryFlag(
+	cmd *cobra.Command,
+	target *string,
+	name, shorthand, def, baseHelp string,
+	allowed func() []string,
+) {
 	*target = def
 	help := fmt.Sprintf("%s (one of: %s)", baseHelp, strings.Join(allowed(), ", "))
-	cmd.Flags().Var(&registryValue{target: target, allowed: allowed}, name, help)
+	cmd.Flags().VarP(&registryValue{target: target, allowed: allowed}, name, shorthand, help)
 	_ = cmd.RegisterFlagCompletionFunc(name, func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
 		return allowed(), cobra.ShellCompDirectiveNoFileComp
 	})
